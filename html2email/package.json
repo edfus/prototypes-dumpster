@@ -1,0 +1,19 @@
+{
+  "name": "html2email",
+  "version": "1.0.0",
+  "description": "",
+  "main": "html2email.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "e",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.6",
+    "forward-proxy-tunnel": "^1.1.8",
+    "inline-css": "^3.0.0",
+    "stream-editor": "^1.9.0",
+    "svg2img": "^0.9.2"
+  }
+}
