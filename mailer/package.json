@@ -1,0 +1,19 @@
+{
+  "name": "mailer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "send": "node send.js"
+  },
+  "private": true,
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "nodemailer": "^6.6.0",
+    "sisteransi": "^1.0.5",
+    "stream-editor": "^1.9.1"
+  }
+}

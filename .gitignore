@@ -1,0 +1,6 @@
+node_modules
+secrets
+package-lock.json
+wrangler.toml
+worker
+dist
