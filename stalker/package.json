@@ -1,0 +1,19 @@
+{
+  "name": "stalker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js"
+  },
+  "private": true,
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "oicq": "^1.17.2",
+    "randexp": "^0.5.3",
+    "vm2": "^3.9.3"
+  }
+}

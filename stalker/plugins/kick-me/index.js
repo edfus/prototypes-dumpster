@@ -1,0 +1,1 @@
+// async client.setGroupKick(group_id, user_id[, reject_add_request])
