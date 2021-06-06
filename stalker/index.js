@@ -3,6 +3,7 @@ import credentials from "./secrets/credentials.js";
 import basicInfo from "./secrets/basic-info.js";
 import { createBot } from "./src/create-bot.js";
 import { loadPlugins } from "./src/load-plugins.js";
+import { InputAgent } from "./src/input-agent.js";
 
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -18,7 +19,7 @@ const setBasicInfo = false;
 
   process.once("SIGINT", () => bot.logout());
   process.once("SIGTERM", () => bot.logout());
-  process.once("uncaughtException", () => bot.logout());
+  // process.once("uncaughtException", () => bot.logout());
 
   bot.once("system.online", () => {
     bot.setOnlineStatus(70); // do not disturb
@@ -35,16 +36,34 @@ const setBasicInfo = false;
      .login(credentials.password_md5 || credentials.password)
   ;
 
-  process.stdin.on("data", async data => {
-    if(/(--)?reload|-r/i.test(data.toString().trim())) {
-      console.info("Reloading plugins...");
+  const inputAgent = new InputAgent();
+
+  inputAgent.prefix = "- ";
+
+  inputAgent.use(async (ctx, next) => {
+    const data = ctx.input.trim();
+    if(/(--)?reload|-r/i.test(data)) {
+      ctx.agent.respond("Reloading plugins...");
       bot.removeListener("message", callback);
 
       callback = app.callback(bot, await loadPlugins(pluginsPath, true));
       bot.on("message", callback);
-      console.info("Reloaded");
+      ctx.agent.respond("Reloaded");
+      return ;
     }
+
+    return next();
   });
 
-  process.once("SIGINT", () => process.stdin.unref());
+  inputAgent.use((ctx, next) => {
+    const data = ctx.input.trim();
+    if(/(--)?login|-l/i.test(data)) {
+      ctx.agent.respond("Login...");
+      return bot.login(credentials.password_md5 || credentials.password);
+    }
+
+    return next();
+  });
+
+  inputAgent.listen();
 })();
