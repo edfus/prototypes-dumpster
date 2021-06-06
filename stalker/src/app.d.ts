@@ -2,7 +2,7 @@
 
 import { EventEmitter } from "events";
 import Randexp from "randexp";
-import { CommonMessageEventData, Client } from "oicq";
+import { CommonMessageEventData, Client, MediaFile } from "oicq";
 
 
 type QQID = number;
@@ -83,7 +83,8 @@ interface Context extends ParsedCommandContext, BasicContext {
     filepath: string;
   }>;
   respond: (message: string, auto_escape?: boolean) => Promise<void>;
-  atAndReply: (toAt: Array<AtMetaData> | AtMetaData, message: string) => Promise<void>;
+  atAndRespond: (toAt: Array<AtMetaData> | AtMetaData, message: string) => Promise<void>;
+  sendImage: (image: MediaFile) => Promise<void>;
 }
 
 declare class App extends EventEmitter {

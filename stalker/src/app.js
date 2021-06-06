@@ -9,6 +9,7 @@ import { parseCommand } from "./parse-command.js";
 import { functions } from "./one-bot-async-functions.js";
 
 import RandExp from "randexp";
+import oicq from "oicq";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDirectory = join(__dirname, "..");
@@ -140,6 +141,11 @@ class App extends EventEmitter {
         return respond(strMessage);
       };
 
+
+      const sendImage = async image => {
+        return respond(oicq.segment.image(image));
+      }
+
       try {
         const ctx = {
           ...this.context,
@@ -151,7 +157,8 @@ class App extends EventEmitter {
           bot,
           pluginCommands,
           respond: respondToClient,
-          sendMedia: respond
+          atAndRespond,
+          sendImage: sendImage
         };
   
         let index = 0;
