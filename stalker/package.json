@@ -13,7 +13,6 @@
   "license": "ISC",
   "dependencies": {
     "oicq": "^1.17.2",
-    "randexp": "^0.5.3",
-    "vm2": "^3.9.3"
+    "randexp": "^0.5.3"
   }
 }

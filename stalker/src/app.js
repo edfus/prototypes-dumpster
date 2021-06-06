@@ -13,20 +13,32 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDirectory = join(__dirname, "..");
 const pluginsPath = join(rootDirectory, "./plugins");
 
+const environment = "production";
+
 class App extends EventEmitter {
   context = {
     app: this,
-    throw(status, message) {
-      const err = new Error(message || status);
-      err.status = status;
-      err.expose = true;
+    throw(error, status) {
+      const err = (
+        error instanceof Error 
+        ? error
+        : new Error(error)
+      );
+
+      error.expose = true;
+
+      if(status) {
+        error.status = status;
+      }
+
       throw err;
     },
-    assert(shouldBeTruthy, status, message) {
+    assert(shouldBeTruthy, error) {
       if (!shouldBeTruthy) {
-        this.throw(status, message);
+        this.throw(error);
       }
     },
+    environment,
     getReaction (name) {
       const value = this.reactions[name];
       if(value instanceof RandExp) {
@@ -41,7 +53,7 @@ class App extends EventEmitter {
     },
     reactions: {
       reject: new RandExp(
-        /[nN](o|ope)?|teehee|my (pp|\w{2,5}) goes b[rR]{3}|。{1,6}|waht|[fF]|OwO|👎|💩|[#$%^~fuck]{6}/
+        /[nN](o|ope)?|teehee|。{1,6}|waht|[fF]|OwO|👎|💩|[#$%^~fuck]{6}/
       ),
       accept: new RandExp(
         /[0oOk]?k|»{1,9}|oh{1,7}/i
@@ -58,59 +70,64 @@ class App extends EventEmitter {
       this.on('error', console.error);
     }
 
-    const respondToClient = async (message) => {
-      const strMessage = (
-        typeof message === "string"
-          ? message
-          : inspect(message)
-      );
-
-      switch (type) {
-        case "private":
-          this.emit("respond", { type, id: qqData.user_id, msg: strMessage });
-          return bot.sendPrivateMsg(qqData.user_id, strMessage);
-        default: // group
-          this.emit("respond", { type, id: qqData.group_id, msg: strMessage });
-          return bot.sendGroupMsg(qqData.group_id, strMessage);
-      }
-    };
-
     const middlewares = plugins.map(p => p.middleware);
+    const pluginCommands = (
+      plugins.filter(p => Boolean(p.command))
+             .map(p => ({
+               plugin: p.name,
+               command: p.command,
+               filepath: p.filepath,
+             }))
+    );
 
     return async (qqData, type) => {
-      const ctx = {
-        ...this.context,
-        data: qqData, from: type,
-        state: {
-          command: parseCommand(qqData.message[0].type, qqData.raw_message),
-          pluginCommands: (
-            plugins.filter(p => Boolean(p.command))
-                   .map(p => ({
-                     plugin: p.name,
-                     command: p.command,
-                     filepath: p.filepath,
-                   }))
-          )
-        },
-        bot,
-        respond: respondToClient
-      };
-
-      let index = 0;
-      const next = async () => {
-        if (index >= middlewares.length)
-          return;
-        return middlewares[index++](ctx, next);
+      const respondToClient = async message => {
+        const strMessage = (
+          typeof message === "string"
+            ? message
+            : inspect(message)
+        );
+  
+        switch (type) {
+          case "private":
+            this.emit("respond", { type, id: qqData.user_id, msg: strMessage });
+            return bot.sendPrivateMsg(qqData.user_id, strMessage);
+          default: // group
+            this.emit("respond", { type, id: qqData.group_id, msg: strMessage });
+            return bot.sendGroupMsg(qqData.group_id, strMessage);
+        }
       };
 
       try {
+        const ctx = {
+          ...this.context,
+          ...parseCommand(qqData),
+          data: qqData, from: type,
+          state: { 
+            
+          },
+          bot,
+          pluginCommands,
+          respond: respondToClient
+        };
+  
+        let index = 0;
+        const next = async () => {
+          if (index >= middlewares.length)
+            return;
+          return middlewares[index++](ctx, next);
+        };
+
         await next();
       } catch (err) {
         this.emit("error", err);
+        if(environment === "test") {
+          return respondToClient(err);
+        }
         if (err.expose) {
-          await respondToClient(err);
+          return respondToClient(err.message);
         } else {
-          await respondToClient(err.status || "Having an existential crisis right now, go eat your boots!");
+          return respondToClient(err.status || "Having an existential crisis right now, go eat your boots!");
         }
       }
     };
@@ -131,7 +148,7 @@ class App extends EventEmitter {
       bot.on("message.private", data => callback(data, "private"));
       bot.on("message.group", data => callback(data, "group"));
   
-      bot.login(credentials.password);
+      bot.login(credentials.password_md5 || credentials.password);
 
       return bot;
     } catch (err) {

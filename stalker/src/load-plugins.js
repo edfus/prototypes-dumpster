@@ -122,7 +122,13 @@ export async function loadPlugins(base_dir) {
       plugins = plugins.filter(p => Boolean(p));
 
       if (plugins.some(p => typeof p.middleware !== "function")) {
-        throw new Error(`received an non-function middleware in plugins ${plugins}`);
+        for (const p of plugins) {
+          if(typeof p.middleware !== "function") {
+            throw new Error (
+              `a non-function middleware is exported by plugin '${p.name}'`
+            );
+          }
+        }
       }
 
       console.info("Loaded plugins:");
