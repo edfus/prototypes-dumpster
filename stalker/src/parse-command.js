@@ -1,11 +1,32 @@
+let myNickName = "stalker";
+
 export function parseCommand (data) { //TODO rename
   const selfID = data.self_id;
 
   const messages = [ ...data.message ];
-  const isAtMe = messages[0].type === "at" && messages[0].data.qq === selfID;
+  let isAtMe = messages[0].type === "at" && messages[0].data.qq === selfID;
+
+  if (isAtMe && messages[0].data.text) {
+    myNickName = messages[0].data.text.replace(/^@/, "");
+  }
 
   if (isAtMe) {
     messages.shift();
+  }
+
+  if (!isAtMe && myNickName) {
+    const toCompare =  `@${myNickName} `;
+    if(messages[0].type === "text") {
+      if(
+        messages[0].data.text.trimStart().slice(0, toCompare.length)
+        === toCompare
+        ) {
+        isAtMe = true;
+        messages[0].data.text = messages[0].data.text.trimStart().slice(
+          toCompare.length
+        );
+      }
+    }
   }
 
   const allAt = [];
@@ -36,6 +57,10 @@ export function parseCommand (data) { //TODO rename
         console.error("unknown type", message.type, "received in", message);
         break;
     }
+  }
+
+  if(isAtMe) {
+    commandText = commandText.replace(/^\s/, "");
   }
 
   return {
