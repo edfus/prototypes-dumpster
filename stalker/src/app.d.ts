@@ -53,7 +53,7 @@ interface ParsedCommandContext {
   "@": Array<QQID>;
   /* is a private message from a friend */
   isFriend: boolean;
-  // reply: (message: string, auto_escape = false) => Promise<void>;
+  // reply: (message: string, auto_escape?: boolean) => Promise<void>;
   anonymous: boolean;
   senderID: QQID;
   selfID: QQID;
@@ -82,7 +82,7 @@ interface Context extends ParsedCommandContext, BasicContext {
     command: string;
     filepath: string;
   }>;
-  respond: (message: string) => Promise<void>;
+  respond: (message: string, auto_escape?: boolean) => Promise<void>;
   atAndReply: (toAt: Array<AtMetaData> | AtMetaData, message: string) => Promise<void>;
 }
 

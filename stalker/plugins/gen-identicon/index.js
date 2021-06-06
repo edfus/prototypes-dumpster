@@ -4,7 +4,7 @@ import oicq from "oicq";
 import { createHash } from "crypto";
 
 const commandPattern = /^\s*(gen(erate)?\s+)?(avatar|identicon|icon)(\s+|\(|$)/;
-export const command = commandPattern.source.concat(" input");
+export const command = commandPattern.source.concat(" [ input ]");
 
 export default function (ctx, next) {
   if(ctx.from === "group" && !ctx.isAtMe) {

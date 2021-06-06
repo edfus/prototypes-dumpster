@@ -1,4 +1,4 @@
-const commandPattern = /^commands|help$/i;
+const commandPattern = /^commands|help|plugins?$/i;
 export const command = commandPattern.source;
 
 const newline = "\r\n";

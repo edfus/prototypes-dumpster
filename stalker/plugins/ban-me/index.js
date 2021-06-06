@@ -36,7 +36,7 @@ let i = 0;
 const banPattern = /^ban(\s|(?=me)|$)/i;
 const targetPattern = /^(me|ME)/;
 
-export const command = "/ban (me|@yourself) [ duration (in English) ]/i";
+export const command = "ban (me|@yourself) [ duration (in English) ]";
 
 export default async function (ctx, next) {
   if(ctx.from !== "group" || !ctx["@me"]) {
