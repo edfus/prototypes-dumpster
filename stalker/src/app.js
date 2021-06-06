@@ -103,8 +103,8 @@ class App extends EventEmitter {
                    ? result.error.message || inspect(result.error)
                    : `${result.retcode} ${result.status}`
                 );
-                error.raw = result;
-                error.argv = argv;
+                error.raw  = inspect(result);
+                error.argv = inspect(argv);
                 error.func = func.name;
                 throw error;
               }
@@ -141,6 +141,20 @@ class App extends EventEmitter {
         return respond(strMessage);
       };
 
+      const atAndRespond = async (toAt, body) => {
+        if(!Array.isArray(toAt)) {
+          toAt = [ toAt ];
+        }
+      
+        if(type === "private") {
+          return respond(body);
+        }
+
+        return respond([
+          ...toAt.map(atObj => oicq.segment.at(atObj.qq, atObj.text)),
+          oicq.segment.text(body.replace(/^([^\s])/, " $1"))
+        ]);
+      }
 
       const sendImage = async image => {
         return respond(oicq.segment.image(image));
