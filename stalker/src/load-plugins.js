@@ -5,13 +5,13 @@ import { pathToFileURL } from "url";
 const jsFilePattern = /\.[cm]?js$/;
 const indexJSFilePattern = /index\.[cm]?js$/;
 
-export async function loadPlugins(base_dir) {
-  const items = await fsp.readdir(base_dir, { withFileTypes: true });
+export async function loadPlugins(baseDir, noCache) {
+  const items = await fsp.readdir(baseDir, { withFileTypes: true });
   
   const pluginFiles = await Promise.all(
     items.map(async dirent => {
       if(dirent.isDirectory()) {
-        const dirPath = join(base_dir, dirent.name);
+        const dirPath = join(baseDir, dirent.name);
         const packagePath = join(dirPath, 'package.json');
 
         try {
@@ -61,7 +61,7 @@ export async function loadPlugins(base_dir) {
         return {
           dir: dirPath,
           name: dirent.name,
-          filepath: join(base_dir, dirent.name)
+          filepath: join(baseDir, dirent.name)
         };
       } else {
         return false;
@@ -70,10 +70,13 @@ export async function loadPlugins(base_dir) {
   );
 
   const promises = [];
+  const subfix = noCache ? `?v=${Math.random()}` : "";
   
   for (const { dir, name, filepath } of pluginFiles.filter(Boolean)) {
     promises.push(
-      import(pathToFileURL(filepath)).then(middlewareModule => {
+      import(
+        pathToFileURL(filepath).toString().concat(subfix)
+      ).then(middlewareModule => {
         const command = middlewareModule.command;
         if(middlewareModule.default) {
           return {
