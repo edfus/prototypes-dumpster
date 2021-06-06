@@ -7,11 +7,11 @@ import { CommonMessageEventData, Client } from "oicq";
 
 type QQID = number;
 type PluginName = string;
-type FromType = "private" | "group";
+type FromType = "private" | "group" | "discuss";
 
 type Next = () => Promise<void>;
 type Middleware = (ctx: Context, next: Next) => Promise<void>;
-type MessageHandler = (qqData: CommonMessageEventData, type: FromType) => Promise<void>;
+type MessageHandler = (qqData: CommonMessageEventData) => Promise<void>;
 
 interface PluginInfo {
   name: PluginName;
@@ -51,6 +51,8 @@ interface ParsedCommandContext {
   /* sugar for isAtMe */
   "@me": boolean;
   "@": Array<QQID>;
+  /* is a private message from a friend */
+  isFriend: boolean;
   reply: (message: string, auto_escape = false) => Promise<void>;
   anonymous: boolean;
   senderID: QQID;
@@ -84,7 +86,7 @@ interface Context extends ParsedCommandContext, BasicContext {
   atAndReply: (toAt: Array<AtMetaData> | AtMetaData, message: string) => Promise<void>;
 }
 
-export declare class App extends EventEmitter {
+declare class App extends EventEmitter {
   constructor();
   context: BasicContext;
 
@@ -97,5 +99,7 @@ export declare class App extends EventEmitter {
     };
     bot?: Client;
     plugins?: PluginInfo[];
-  }): Client;
+  }): Promise<Client>;
 }
+
+export default App;

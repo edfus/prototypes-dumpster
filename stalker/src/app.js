@@ -80,7 +80,19 @@ class App extends EventEmitter {
              }))
     );
 
-    return async (qqData, type) => {
+    return async (qqData) => {
+      const type = qqData.message_type;
+      const respond = async (message, auto_escape) => {
+        switch (type) {
+          case "private":
+            this.emit("respond", { type, id: qqData.user_id, msg: message });
+            return bot.sendPrivateMsg(qqData.user_id, message, auto_escape);
+          default: // group
+            this.emit("respond", { type, id: qqData.group_id, msg: message });
+            return bot.sendGroupMsg(qqData.group_id, message, auto_escape);
+        }
+      }
+
       const respondToClient = async message => {
         const strMessage = (
           typeof message === "string"
@@ -88,14 +100,7 @@ class App extends EventEmitter {
             : inspect(message)
         );
   
-        switch (type) {
-          case "private":
-            this.emit("respond", { type, id: qqData.user_id, msg: strMessage });
-            return bot.sendPrivateMsg(qqData.user_id, strMessage);
-          default: // group
-            this.emit("respond", { type, id: qqData.group_id, msg: strMessage });
-            return bot.sendGroupMsg(qqData.group_id, strMessage);
-        }
+        return respond(strMessage);
       };
 
       try {
@@ -108,7 +113,8 @@ class App extends EventEmitter {
           },
           bot,
           pluginCommands,
-          respond: respondToClient
+          respond: respondToClient,
+          sendMedia: respond
         };
   
         let index = 0;
@@ -145,9 +151,7 @@ class App extends EventEmitter {
     try {
       const callback = this.callback(bot, plugins);
 
-      bot.on("message.private", data => callback(data, "private"));
-      bot.on("message.group", data => callback(data, "group"));
-  
+      bot.on("message", callback);
       bot.login(credentials.password_md5 || credentials.password);
 
       return bot;

@@ -1,4 +1,4 @@
-export function parseCommand (data) {
+export function parseCommand (data) { //TODO rename
   const selfID = data.self_id;
 
   const messages = [ ...data.message ];
@@ -28,8 +28,9 @@ export function parseCommand (data) {
           value: message.data.text.trimStart()
         });
         break;
+      case "bface":
+        break;
       case "face":
-        ;
         break;
       default:
         console.error("unknown type", message.type, "received in", message);
@@ -43,6 +44,7 @@ export function parseCommand (data) {
     "@me": isAtMe,
     isAtMe: isAtMe,
     "@": allAt,
+    isFriend: data.message_type === "private" && data.sub_type === "friend",
     selfID: selfID,
     reply: data.reply,
     anonymous: data.anonymous,
