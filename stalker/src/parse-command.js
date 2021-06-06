@@ -46,7 +46,6 @@ export function parseCommand (data) { //TODO rename
     "@": allAt,
     isFriend: data.message_type === "private" && data.sub_type === "friend",
     selfID: selfID,
-    reply: data.reply,
     anonymous: data.anonymous,
     senderID: data.user_id,
     groupID: data.group_id,

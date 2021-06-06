@@ -19,10 +19,10 @@ export function createBot (credentials) {
     console.info("Press Enter to continue once this device is unlocked.");
     bot.sendSMSCode();
     process.stdin.once("data", code => {
-      if(code) {
-        bot.submitSMSCode(code);
+      if(code.toString()) {
+        bot.submitSMSCode(code.toString());
       } else {
-        bot.login();
+        bot.login(credentials.password_md5 || credentials.password);
       }
     });
   });
@@ -35,14 +35,24 @@ export function createBot (credentials) {
     console.error(arguments);
   });
 
-  bot.on("request.friend.add", data => {
-    bot.setFriendAddRequest(data.flag);
+  bot.on("request.friend.add", async data => {
+    const result = await bot.setFriendAddRequest(data.flag);
+    if(result.status !== "ok") {
+      return bot.logger.error(`Confirm friend request ${data.flag} failed`, data, result);
+    }
+
     bot.logger.info("Confirmed friend request with", data);
+    await bot.sendPrivateMsg(data.user_id, "Hey, dude, let's do a circle jerk at the sperm bank!");
   });
 
-  bot.on("request.group.invite", data => {
-    bot.setGroupAddRequest(data.flag);
+  bot.on("request.group.invite", async data => {
+    const result = await bot.setGroupAddRequest(data.flag);
+    if(result.status !== "ok") {
+      return bot.logger.error(`Confirm group invitation ${data.flag} failed`, data, result);
+    }
+
     bot.logger.info("Confirmed group invitation with", data);
+    await bot.sendPrivateMsg(data.user_id, "Hello ladies!");
   });
 
   return bot;

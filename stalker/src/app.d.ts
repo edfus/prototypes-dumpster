@@ -53,7 +53,7 @@ interface ParsedCommandContext {
   "@": Array<QQID>;
   /* is a private message from a friend */
   isFriend: boolean;
-  reply: (message: string, auto_escape = false) => Promise<void>;
+  // reply: (message: string, auto_escape = false) => Promise<void>;
   anonymous: boolean;
   senderID: QQID;
   selfID: QQID;
