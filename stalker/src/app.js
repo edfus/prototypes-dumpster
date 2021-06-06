@@ -58,6 +58,9 @@ class App extends EventEmitter {
       ),
       accept: new RandExp(
         /[0oOk]?k|»{1,9}|oh{1,7}/i
+      ),
+      fooled: new RandExp(
+        /\?|DON'T STALK ME|I HATE TROLLING/
       )
     }
   };
@@ -93,11 +96,11 @@ class App extends EventEmitter {
             async apply (target, thisArg, argv) {
               const result = await func.apply(bot, argv);
   
-              if(result.status !== "ok") { // async, error
+              if(result.status === "failed") { // async, ok, failed
                 const error = new Error(
                   result.error
                    ? result.error.message || inspect(result.error)
-                   : `${result.ret} ${result.status}`
+                   : `${result.retcode} ${result.status}`
                 );
                 error.raw = result;
                 error.argv = argv;
@@ -112,8 +115,8 @@ class App extends EventEmitter {
   
         return func;
       }
-    })
-
+    });
+    
     return async (qqData) => {
       const type = qqData.message_type;
       const respond = async (message, auto_escape) => {
@@ -164,7 +167,7 @@ class App extends EventEmitter {
         try {
           if(environment === "test") {
             await respondToClient(err);
-          } else if (err.expose) {
+          } else if (err.expose && !err.message.toString().match(/[\u3400-\u9FBF]/)) {
             await respondToClient(err.message);
           } else {
             await respondToClient(err.status || "Having an existential crisis right now, go eat your boots!");

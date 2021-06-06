@@ -38,7 +38,7 @@ const setBasicInfo = false;
 
   const inputAgent = new InputAgent();
 
-  inputAgent.prefix = "- ";
+  inputAgent.prefix = "> ";
 
   inputAgent.use(async (ctx, next) => {
     const data = ctx.input.trim();

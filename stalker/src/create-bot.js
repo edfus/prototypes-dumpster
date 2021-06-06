@@ -42,7 +42,7 @@ export function createBot (credentials) {
     }
 
     bot.logger.info("Confirmed friend request with", data);
-    await bot.sendPrivateMsg(data.user_id, "Hey, dude, let's do a circle jerk at the sperm bank!");
+    await bot.sendPrivateMsg(data.user_id, "Hi dude, let's do a circle jerk at the sperm bank someday!");
   });
 
   bot.on("request.group.invite", async data => {
@@ -52,7 +52,7 @@ export function createBot (credentials) {
     }
 
     bot.logger.info("Confirmed group invitation with", data);
-    await bot.sendPrivateMsg(data.user_id, "Hello ladies!");
+    await bot.sendGroupMsg(data.group_id, "Hello ladies!");
   });
 
   return bot;
