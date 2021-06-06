@@ -1,15 +1,31 @@
 import { VM } from 'vm2';
 const vm = new VM();
 
+export const priority = 5;
+export const command = "expr( 1 + 1 ) [ can have multiple lines ]";
+
 export default async function (ctx, next) {
-  if(/^expr\s|\(/i.test(ctx.state.command)) {
-    const toRun = ctx.state.command.replace(/^expr\s?/i, "");
+  if(ctx.from === "group" && !ctx["@me"]) {
+    return next();
+  }
+
+  if(/^\s*expr\s|\(/i.test(ctx.commandText)) {
+    const toRun = ctx.commandText.replace(/^\s*expr\s?/i, "");
+
+    // if (ctx.environment !== "production") {
+      if(toRun.length > 40) {
+        return ctx.respond(ctx.getReaction("reject"));
+      }
+    // }
+    
     try {
-      return ctx.respond(await vm.run(toRun));
+      const result = await vm.run(toRun);
+      if(result instanceof Error) {
+        result.stack = "***";
+      }
+      return ctx.respond(result);
     } catch (err) {
-      err.expose = true;
-      err.status = toRun;
-      return ctx.throw(err);
+      return ctx.throw(err, toRun);
     }
   }
 
