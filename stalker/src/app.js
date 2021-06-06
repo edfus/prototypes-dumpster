@@ -6,6 +6,7 @@ import { inspect } from "util";
 import { createBot } from "./create-bot.js";
 import { loadPlugins } from "./load-plugins.js";
 import { parseCommand } from "./parse-command.js";
+import { functions } from "./one-bot-async-functions.js";
 
 import RandExp from "randexp";
 
@@ -80,6 +81,39 @@ class App extends EventEmitter {
              }))
     );
 
+    bot = new Proxy(bot, {
+      get(target, property, receiver) {
+        const func = Reflect.get(target, property, receiver);
+  
+        if(
+            typeof func === "function" &&
+            functions.includes(property)
+          ) {
+          return new Proxy(func, {
+            async apply (target, thisArg, argv) {
+              const result = await func.apply(bot, argv);
+  
+              if(result.status !== "ok") { // async, error
+                const error = new Error(
+                  result.error
+                   ? result.error.message || inspect(result.error)
+                   : `${result.ret} ${result.status}`
+                );
+                error.raw = result;
+                error.argv = argv;
+                error.func = func.name;
+                throw error;
+              }
+  
+              return result.data || result;
+            }
+          });
+        }
+  
+        return func;
+      }
+    })
+
     return async (qqData) => {
       const type = qqData.message_type;
       const respond = async (message, auto_escape) => {
@@ -120,20 +154,23 @@ class App extends EventEmitter {
         let index = 0;
         const next = async () => {
           if (index >= middlewares.length)
-            return;
+            return ;
           return middlewares[index++](ctx, next);
         };
 
         await next();
       } catch (err) {
         this.emit("error", err);
-        if(environment === "test") {
-          return respondToClient(err);
-        }
-        if (err.expose) {
-          return respondToClient(err.message);
-        } else {
-          return respondToClient(err.status || "Having an existential crisis right now, go eat your boots!");
+        try {
+          if(environment === "test") {
+            await respondToClient(err);
+          } else if (err.expose) {
+            await respondToClient(err.message);
+          } else {
+            await respondToClient(err.status || "Having an existential crisis right now, go eat your boots!");
+          }
+        } catch (error) {
+          this.emit("error", { panic: "Report to client failed", error });
         }
       }
     };
