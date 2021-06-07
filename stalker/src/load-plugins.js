@@ -116,9 +116,7 @@ export async function loadPlugins(baseDir, noCache) {
 
         if(possibleMiddlewareKeys.length === 1) {
           return {
-            name,
-            command,
-            filepath,
+            meta,
             middleware: middlewareModule[possibleMiddlewareKeys[0]]
           };
         }
@@ -144,8 +142,20 @@ export async function loadPlugins(baseDir, noCache) {
         }
       }
 
+      plugins = plugins.sort(
+        (pA, pB) => {
+          if(pA.meta.priority > pB.meta.priority) {
+            return 1;
+          } else {
+            return -1
+          }
+        }
+      );
+
       console.info("Loaded plugins:");
-      console.info(plugins.map(p => "- ".concat(p.meta.name)).join("\r\n"));
+      console.info(plugins.map(
+        p => `- ${p.meta.priority}: `.concat(p.meta.name)
+      ).join("\r\n"));
 
       return plugins;
     }
