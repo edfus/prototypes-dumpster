@@ -94,6 +94,11 @@ class InputAgent extends EventEmitter {
 
   async write (message, style) {
     this.emit("writing");
+
+    if(Array.isArray(message)) {
+      message = message.join(" ");
+    }
+
     const strMessage = (
       typeof message === "string"
         ? message
@@ -112,6 +117,11 @@ class InputAgent extends EventEmitter {
 
   async respond (message, style) {
     this.emit("writing");
+
+    if(Array.isArray(message)) {
+      message = message.join(" ");
+    }
+
     const strMessage = (
       typeof message === "string"
         ? message
@@ -130,6 +140,11 @@ class InputAgent extends EventEmitter {
 
   async warn (message, style = "yellow", emitWarning = false) {
     this.emit("writing");
+
+    if(Array.isArray(message)) {
+      message = message.join(" ");
+    }
+
     const strMessage = (
       typeof message === "string"
         ? message
@@ -160,6 +175,11 @@ class InputAgent extends EventEmitter {
 
   async throw (err, style = "red") {
     this.emit("writing");
+
+    if(Array.isArray(message)) {
+      message = message.join(" ");
+    }
+
     const error = (
       err instanceof Error
         ? err
@@ -304,6 +324,10 @@ class InputAgent extends EventEmitter {
   }
 
   async prompt () {
+    return this.respond.apply(this, arguments);
+  }
+
+  async info () {
     return this.respond.apply(this, arguments);
   }
 

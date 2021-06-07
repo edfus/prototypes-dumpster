@@ -30,15 +30,66 @@ const setBasicInfo = false;
     }
   });
 
+  const inputAgent = new InputAgent();
+  inputAgent.prefix = "> ";
+
+  app.prepend({
+    meta: {
+      name: "performance-measurement"
+    },
+    middleware: (ctx, next) => {
+      const timeStart = Date.now();
+      await next();
+      const timeEnd = Date.now();
+
+      if(timeEnd - timeStart > 2000) {
+        inputAgent.warn(
+          [
+            `Answering ${ctx.from} message to`,
+            `[${ctx.sender.nickname} ${ctx.sender.user_id} ${ctx.sender.role}]`,
+            `costed ${timeEnd - timeStart / 1000}s`
+          ]
+        );
+      }
+    }
+  });
+
+  app.on("respond", info => {
+    if(info.msg.length >= 25) {
+      info.msg = info.msg.slice(0, 25).concat("...");
+    }
+
+    inputAgent.info(
+      [
+        new Date().toLocaleString(),
+        "Responding",
+        info.type === "private" ? "to" : "in group",
+        info.id
+      ],
+      "cyan"
+    );
+
+    inputAgent.info(
+      info.msg,
+      "cyan"
+    );
+
+    inputAgent.info(
+      `[ served by '${info.plugin}' ]`,
+      "cyan"
+    );
+  });
+
+  app.on("error", err => {
+    err.time = new Date().toLocaleString();
+    inputAgent.throw(err);
+  });
+
   let callback = app.callback(bot, await loadPlugins(pluginsPath));
 
   bot.on("message", callback)
      .login(credentials.password_md5 || credentials.password)
   ;
-
-  const inputAgent = new InputAgent();
-
-  inputAgent.prefix = "> ";
 
   inputAgent.use(async (ctx, next) => {
     const data = ctx.input.trim();

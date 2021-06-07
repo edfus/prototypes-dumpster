@@ -93,6 +93,8 @@ declare class App extends EventEmitter {
   constructor();
   context: BasicContext;
 
+  prepend (builtInPlugin: Plugin): this;
+
   callback(bot: Client, plugins: Plugin[]): MessageHandler;
 
   listen(options: { 

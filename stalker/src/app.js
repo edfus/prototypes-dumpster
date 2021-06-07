@@ -66,6 +66,17 @@ class App extends EventEmitter {
     }
   };
 
+  builtIn = {
+    meta: [],
+    middleware: []
+  };
+
+  prepend ({ meta, middleware }) {
+    this.builtIn.meta.push(meta);
+    this.builtIn.middleware.push(middleware);
+    return this;
+  }
+
   callback(bot, plugins) {
     if (!this.listenerCount('error')) {
       console.info(
@@ -75,8 +86,12 @@ class App extends EventEmitter {
       this.on('error', console.error);
     }
 
-    const middlewares = plugins.map(p => p.middleware);
-    const pluginsMeta = plugins.map(p => p.meta);
+    const middlewares = this.builtIn.middleware.concat(
+      plugins.map(p => p.middleware)
+    );
+    const pluginsMeta = this.builtIn.meta.concat(
+      plugins.map(p => p.meta)
+    );
 
     bot = new Proxy(bot, {
       get(target, property, receiver) {
@@ -112,14 +127,23 @@ class App extends EventEmitter {
     });
     
     return async (qqData) => {
+      let middlewareIndex = 0;
+
       const type = qqData.message_type;
       const respond = async (message, auto_escape) => {
+        const reportInfo = { 
+          type, 
+          id:  type === "private" ? qqData.user_id : qqData.group_id, 
+          msg: message,
+          plugin: pluginsMeta[middlewareIndex - 1]?.name
+        };
+
+        this.emit("respond", reportInfo);
+
         switch (type) {
           case "private":
-            this.emit("respond", { type, id: qqData.user_id, msg: message });
             return bot.sendPrivateMsg(qqData.user_id, message, auto_escape);
           default: // group
-            this.emit("respond", { type, id: qqData.group_id, msg: message });
             return bot.sendGroupMsg(qqData.group_id, message, auto_escape);
         }
       }
@@ -153,7 +177,6 @@ class App extends EventEmitter {
         return respond(oicq.segment.image(image));
       };
 
-      let index = 0;
       try {
         const ctx = {
           ...this.context,
@@ -170,16 +193,18 @@ class App extends EventEmitter {
         };
   
         const next = async () => {
-          if (index >= middlewares.length)
+          if (middlewareIndex >= middlewares.length)
             return ;
-          return middlewares[index++](ctx, next);
+          return middlewares[middlewareIndex++](ctx, next);
         };
 
         await next();
       } catch (err) {
-        if(index >= 1) {
-          err.meta = pluginsMeta[index - 1];
+        if(middlewareIndex >= 1) {
+          err.meta = pluginsMeta[middlewareIndex - 1];
         }
+
+        middlewareIndex = -1;
         
         this.emit("error", err);
         try {
