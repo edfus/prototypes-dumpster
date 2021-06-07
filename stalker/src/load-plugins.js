@@ -71,51 +71,61 @@ export async function loadPlugins(baseDir, noCache) {
 
   const promises = [];
   const subfix = noCache ? `?v=${Math.random()}` : "";
+
+  const metaTemplate = {
+    command: "",
+    priority: 5
+  };
   
+  const metaKeys = Object.keys(metaTemplate);
+
   for (const { dir, name, filepath } of pluginFiles.filter(Boolean)) {
     promises.push(
       import(
         pathToFileURL(filepath).toString().concat(subfix)
       ).then(middlewareModule => {
-        const command = middlewareModule.command;
+        const meta = metaKeys.reduce(
+          (metaObj, key) => {
+            if(key in middlewareModule) {
+              metaObj[key] = middlewareModule[key];
+            } else {
+              metaObj[key] = metaTemplate[key];
+            }
+            return metaObj;
+          },
+          {
+            name,
+            filepath
+          }
+        );
+
         if(middlewareModule.default) {
           return {
-            name,
-            command,
-            filepath,
+            meta,
             middleware: middlewareModule.default
           };
         }
 
-        const keys = Object.keys(middlewareModule);
+        const possibleMiddlewareKeys = Object.keys(
+          middlewareModule
+        ).filter(k => !metaKeys.includes(k));
 
-        if(keys.length === 1) {
-          if(!("command" in middlewareModule)) {
-            return {
-              name,
-              command,
-              filepath,
-              middleware: middlewareModule.default
-            };
-          } else {
-            throw new Error(`Which should I import?? ${keys}`);
-          }
+        if(possibleMiddlewareKeys.length === 0) {
+          return false;
         }
 
-        if(keys.length === 2 && "command" in middlewareModule) {
+        if(possibleMiddlewareKeys.length === 1) {
           return {
             name,
             command,
             filepath,
-            middleware: keys.filter(k => k !== "command")[0]
+            middleware: middlewareModule[possibleMiddlewareKeys[0]]
           };
         }
 
-        if(keys.length === 0) {
-          return false;
-        }
-
-        throw new Error(`confused over plugin ${name}'s multiple named imports ${keys}`);
+        throw new Error(
+          `Confused over plugin ${name}'s multiple named exports ${possibleMiddlewareKeys}`
+        );
       })
     );
   }
@@ -128,14 +138,14 @@ export async function loadPlugins(baseDir, noCache) {
         for (const p of plugins) {
           if(typeof p.middleware !== "function") {
             throw new Error (
-              `a non-function middleware is exported by plugin '${p.name}'`
+              `A non-function middleware is exported by plugin '${p.name}'`
             );
           }
         }
       }
 
       console.info("Loaded plugins:");
-      console.info(plugins.map(p => "- ".concat(p.name)).join("\r\n"));
+      console.info(plugins.map(p => "- ".concat(p.meta.name)).join("\r\n"));
 
       return plugins;
     }

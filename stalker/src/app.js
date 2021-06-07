@@ -55,7 +55,7 @@ class App extends EventEmitter {
     },
     reactions: {
       reject: new RandExp(
-        /[nN](o|ope)?|teehee|。{1,6}|waht|[fF]|OwO|👎|💩|[#$%^~fuck]{6}/
+        /[nN](o|ope|ah)?|teehee|。{1,6}|waht|[fF]|OwO|👎|💩|[#$%^~fuck]{6}/
       ),
       accept: new RandExp(
         /[0oOk]?k|»{1,9}|oh{1,7}/i
@@ -76,14 +76,7 @@ class App extends EventEmitter {
     }
 
     const middlewares = plugins.map(p => p.middleware);
-    const pluginCommands = (
-      plugins.filter(p => Boolean(p.command))
-             .map(p => ({
-               plugin: p.name,
-               command: p.command,
-               filepath: p.filepath,
-             }))
-    );
+    const pluginsMeta = plugins.map(p => p.meta);
 
     bot = new Proxy(bot, {
       get(target, property, receiver) {
@@ -154,11 +147,11 @@ class App extends EventEmitter {
           ...toAt.map(atObj => oicq.segment.at(atObj.qq, atObj.text)),
           oicq.segment.text(body.replace(/^([^\s])/, " $1"))
         ]);
-      }
+      };
 
       const sendImage = async image => {
         return respond(oicq.segment.image(image));
-      }
+      };
 
       try {
         const ctx = {
@@ -169,7 +162,7 @@ class App extends EventEmitter {
             
           },
           bot,
-          pluginCommands,
+          plugins: pluginsMeta,
           respond: respondToClient,
           atAndRespond,
           sendImage: sendImage

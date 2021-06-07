@@ -14,10 +14,10 @@ export default async function (ctx, next) {
   if(commandPattern.test(ctx.commandText)) {
     return ctx.respond(
       `Plugins List:${newline.repeat(2)}`.concat(
-        ctx.pluginCommands.map(
-          c => `${capitalize(c.plugin)}:${newline}${indent}${prefix}${
+        ctx.plugins.filter(p => Boolean(p.command)).map(
+          p => `${capitalize(p.name)}:${newline}${indent}${prefix}${
             withLineMaxLength(
-              c.command,
+              p.command,
               maxLength,
               newline + indent + " ".repeat(prefix.length)
             )

@@ -13,12 +13,18 @@ type Next = () => Promise<void>;
 type Middleware = (ctx: Context, next: Next) => Promise<void>;
 type MessageHandler = (qqData: CommonMessageEventData) => Promise<void>;
 
-interface PluginInfo {
+type PluginMetadata = {
   name: PluginName;
-  command?: string;
-  filepath: string;
+  command:  string;
+  /* Default: 5 */
+  priority: number;
+  filepath:  string;
+};
+
+interface Plugin {
+  meta: PluginMetadata;
   middleware: Middleware;
-}
+};
 
 /**
  * the prototype from which ctx is created.
@@ -77,11 +83,7 @@ interface Context extends ParsedCommandContext, BasicContext {
   from: FromType;
   state: {};
   bot: Client;
-  pluginCommands: Array<{
-    plugin: PluginName;
-    command: string;
-    filepath: string;
-  }>;
+  plugins: Array<PluginMetadata>;
   respond: (message: string, auto_escape?: boolean) => Promise<void>;
   atAndRespond: (toAt: Array<AtMetaData> | AtMetaData, message: string) => Promise<void>;
   sendImage: (image: MediaFile) => Promise<void>;
@@ -91,7 +93,7 @@ declare class App extends EventEmitter {
   constructor();
   context: BasicContext;
 
-  callback(bot: Client, plugins: PluginInfo[]): MessageHandler;
+  callback(bot: Client, plugins: Plugin[]): MessageHandler;
 
   listen(options: { 
     credentials: {
@@ -99,7 +101,7 @@ declare class App extends EventEmitter {
       password_md5: string;
     };
     bot?: Client;
-    plugins?: PluginInfo[];
+    plugins?: Plugin[];
   }): Promise<Client>;
 }
 
