@@ -153,6 +153,7 @@ class App extends EventEmitter {
         return respond(oicq.segment.image(image));
       };
 
+      let index = 0;
       try {
         const ctx = {
           ...this.context,
@@ -168,7 +169,6 @@ class App extends EventEmitter {
           sendImage: sendImage
         };
   
-        let index = 0;
         const next = async () => {
           if (index >= middlewares.length)
             return ;
@@ -177,6 +177,10 @@ class App extends EventEmitter {
 
         await next();
       } catch (err) {
+        if(index >= 1) {
+          err.meta = pluginsMeta[index - 1];
+        }
+        
         this.emit("error", err);
         try {
           if(environment === "test") {
