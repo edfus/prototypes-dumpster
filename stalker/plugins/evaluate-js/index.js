@@ -3,7 +3,7 @@ const vm = new VM();
 
 import { inspect } from "util";
 
-export const priority = 5;
+export const priority = 6;
 export const command = "expr( 1 + 1 ) [ can have multiple lines ]";
 
 const commandPattern = /^\s*expr(?=[\s('"`{\[+\-!^])/i;

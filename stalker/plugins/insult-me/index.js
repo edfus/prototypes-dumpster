@@ -1,7 +1,7 @@
 import insult from "insults";
 import shakespeareInsult from "shakespeare-insult";
 
-const commandPattern = /[^\w]?insult\s*me[\s\.\!\?;]*$/i;
+const commandPattern = /[^\w]?insult\s*me[\s\.\!\?;]*/i;
 export const command = commandPattern.source;
 
 export default async function (ctx, next) {

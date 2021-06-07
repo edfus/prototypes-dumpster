@@ -6,6 +6,8 @@ const indent = " ".repeat(2);
 const prefix = "- ";
 const maxLength = 27;
 
+export const priority = 4;
+
 export default async function (ctx, next) {
   if(ctx.from === "group" && !ctx["@me"]) {
     return next();
