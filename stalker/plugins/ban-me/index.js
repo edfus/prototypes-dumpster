@@ -43,7 +43,7 @@ export default async function (ctx, next) {
     return next();
   }
 
-  const command = [ ...ctx.command ];
+  const command = ctx.command;
 
   if(command[0].type === "text" && banPattern.test(command[0].value)) {
     const textTarget = command[0].value.replace(banPattern, "").trim();
