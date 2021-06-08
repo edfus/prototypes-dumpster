@@ -5,6 +5,7 @@ function addPersonalityDomain(manager, context) {
   manager.add("en", "say about you", "me");
   manager.add("en", "why are you here", "me");
   manager.add("en", "what is your personality", "me");
+  manager.add("en", "what's your pronoun", "me");
   manager.add("en", "describe yourself", "me");
   manager.add("en", "tell me about yourself", "me");
   manager.add("en", "tell me about you", "me");
@@ -38,6 +39,10 @@ function addPersonalityDomain(manager, context) {
   manager.add("en", "I hate you", "annoying");
 
   manager.assignDomain('en', 'insult', 'personality');
+  manager.add("en", "sb sbbs", "insult");
+  manager.add("en", "sbssbb", "insult");
+  manager.add("en", "sssbb", "insult");
+  manager.add("en", "sbsbs", "insult");
   const process = reaction => {
     if(typeof reaction.gen === "function") {
       for (let i = 0; i < 4; i++) {

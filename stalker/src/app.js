@@ -71,7 +71,7 @@ class App extends EventEmitter {
         /[nN](o|ope|ah)?|teehee|。{1,6}|waht|[fF]|OwO|👎|👀|💩|[#$%^~fuck]{6}/
       ),
       accept: new RandExp(
-        /[0oOk]?k|»{1,9}|oh{1,7}|[oO]kay|cool.|not bad|fair/i
+        /[0oOk]?k|»{1,9}|oh{1,7}|[oO]kay|cool.|not bad|fair/
       ),
       fooled: new RandExp(
         /FUCK YOU|DON'T STALK ME|I HATE TROLLING/
