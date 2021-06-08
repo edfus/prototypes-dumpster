@@ -17,9 +17,21 @@ const pluginsPath = join(rootDirectory, "./plugins");
 
 const environment = "production";
 
+    
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { containerBootstrap } = require('@nlpjs/core');
+const { NluManager, NluNeural } = require('@nlpjs/nlu');
+const { LangEn } = require('@nlpjs/lang-en-min');
+
 class App extends EventEmitter {
   context = {
     app: this,
+    nlp: {
+      container: null,
+      loaded: false,
+      loadPromise: null
+    },
     throw(error, status) {
       const err = (
         error instanceof Error 
@@ -112,6 +124,18 @@ class App extends EventEmitter {
     }
   };
 
+  constructor () {
+    super();
+    this.context.nlp.loadPromise = (async () => {
+      const container = await containerBootstrap();
+      container.use(NluNeural);
+      container.use(LangEn);
+   
+      this.context.nlp.container = container;
+      this.context.nlp.loaded = true;
+    })();
+  }
+
   builtIn = {
     meta: [],
     middleware: []
@@ -171,7 +195,44 @@ class App extends EventEmitter {
         return func;
       }
     });
-    
+
+    const nlu = {
+      manager: null,
+      trained: false,
+      domains: [],
+      actual: null
+    };
+
+    const manageAndTrain = async () => {
+      nlu.manager = new NluManager(
+        { 
+          container: this.context.nlp.container,
+          locales: ['en', 'zh'],
+          trainByDomain: false
+        }
+      );
+
+      for (const { nlu: pluginNlu } of pluginsMeta) {
+        if(typeof pluginNlu?.train === "function") {
+          await pluginNlu.train(nlu.manager, this.context);
+          if(Array.isArray(pluginNlu.domains)) {
+            nlu.domains = nlu.domains.concat(pluginNlu.domains);
+          }
+          if(pluginNlu.domain) {
+            nlu.domains.push(pluginNlu.domain);
+          }
+        }
+      }
+      await nlu.manager.train();
+      nlu.trained = true;
+    };
+
+    if(this.context.nlp.loaded) {
+      manageAndTrain();
+    } else {
+      this.context.nlp.loadPromise.then(manageAndTrain);
+    }
+
     return async (qqData) => {
       let middlewareIndex = 0;
 
@@ -231,9 +292,16 @@ class App extends EventEmitter {
       };
 
       try {
+        const parsedContext = parseCommand(qqData);
+
+        if(nlu.trained) {
+          nlu.actual = await nlu.manager.process(parsedContext.commandText);
+        } 
+
         const ctx = {
           ...this.context,
-          ...parseCommand(qqData),
+          ...parsedContext,
+          nlu,
           data: qqData, from: type,
           state: { 
             
@@ -265,7 +333,7 @@ class App extends EventEmitter {
           if(ctx.from !== "private" && !ctx.isAtMe) {
             return ;
           }
-          
+
           if(environment === "test") {
             await respondToClient(err);
           } else if (err.expose && !err.message.toString().match(/[\u3400-\u9FBF]/)) {

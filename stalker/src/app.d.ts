@@ -4,6 +4,8 @@ import { EventEmitter } from "events";
 import Randexp from "randexp";
 import { CommonMessageEventData, Client, MediaFile } from "oicq";
 
+import { Container } from "@nlpjs/core";
+import { NluManager } from "@nlpjs/nlu";
 
 type QQID = number;
 type PluginName = string;
@@ -32,6 +34,11 @@ interface Plugin {
  */
 interface BasicContext {
   app: App;
+  nlp: {
+    container: null | Container;
+    loaded: boolean;
+    loadPromise: null | Promise<void>;
+  };
   /* parameter `properties` not supported */
   throw(status?: number, message?: string): void;
   /* parameter `properties` not supported */
@@ -78,7 +85,15 @@ interface ParsedCommandContext {
   }
 }
 
-interface Context extends ParsedCommandContext, BasicContext {
+interface NLU {
+  nlu: {
+    manager: null | NluManager;
+    trained: boolean;
+    domains: Array<string>;
+  }
+}
+
+interface Context extends ParsedCommandContext, BasicContext, NLU {
   data: CommonMessageEventData;
   from: FromType;
   state: {};

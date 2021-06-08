@@ -74,7 +74,8 @@ export async function loadPlugins(baseDir, noCache) {
 
   const metaTemplate = {
     command: "",
-    priority: 5
+    priority: 5,
+    nlu: null
   };
   
   const metaKeys = Object.keys(metaTemplate);

@@ -53,6 +53,8 @@ export function parseCommand (data) { //TODO rename
         break;
       case "face":
         break;
+      case "reply":
+        break;
       default:
         console.error("unknown type", message.type, "received in", message);
         break;
