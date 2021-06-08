@@ -61,7 +61,7 @@ class App extends EventEmitter {
         /[0oOk]?k|»{1,9}|oh{1,7}/i
       ),
       fooled: new RandExp(
-        /\?|DON'T STALK ME|I HATE TROLLING/
+        /FUCK YOU|DON'T STALK ME|I HATE TROLLING/
       )
     }
   };

@@ -49,6 +49,10 @@ export default async function (ctx, next) {
               return ctx.respond(ctx.getReaction("fooled"));
           }
         } else {
+          if(trollers.size > 50) {
+            trollers.clear();
+          }
+
           trollers.set(ctx.senderID, {
             times: 1,
             last: Date.now(),

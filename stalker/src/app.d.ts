@@ -69,11 +69,11 @@ interface ParsedCommandContext {
     user_id: QQID,
     nickname: string,
     card: string,
-    sex:  "male" | "female",
+    sex:  "male" | "female" | "unknown",
     age:  number,
     area: string,
     level: number,
-    role: string,
+    role: "owner" | "admin" | "member",
     title: string,
   }
 }

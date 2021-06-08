@@ -47,7 +47,7 @@ const setBasicInfo = false;
           [
             `Answering ${ctx.from} message to`,
             `[${ctx.sender.nickname} ${ctx.sender.user_id} ${ctx.sender.role}]`,
-            `costed ${timeEnd - timeStart / 1000}s`
+            `costed ${(timeEnd - timeStart) / 1000}s`
           ]
         );
       }
