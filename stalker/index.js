@@ -37,12 +37,12 @@ const setBasicInfo = false;
     meta: {
       name: "performance-measurement"
     },
-    middleware: (ctx, next) => {
+    middleware: async (ctx, next) => {
       const timeStart = Date.now();
       await next();
       const timeEnd = Date.now();
 
-      if(timeEnd - timeStart > 2000) {
+      if(timeEnd - timeStart > 600) {
         inputAgent.warn(
           [
             `Answering ${ctx.from} message to`,
@@ -55,8 +55,8 @@ const setBasicInfo = false;
   });
 
   app.on("respond", info => {
-    if(info.msg.length >= 25) {
-      info.msg = info.msg.slice(0, 25).concat("...");
+    if(info.msg.length >= 40) {
+      info.msg = info.msg.slice(0, 40).concat("...");
     }
 
     inputAgent.info(
@@ -74,7 +74,7 @@ const setBasicInfo = false;
       "cyan"
     );
 
-    inputAgent.info(
+    info.plugin && inputAgent.info(
       `[ served by '${info.plugin}' ]`,
       "cyan"
     );

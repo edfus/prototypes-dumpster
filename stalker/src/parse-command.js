@@ -24,7 +24,7 @@ export function parseCommand (data) { //TODO rename
         isAtMe = true;
         messages[0].data.text = messages[0].data.text.trimStart().slice(
           toCompare.length
-        );
+        ).trimStart();
       }
     }
   }
@@ -59,9 +59,7 @@ export function parseCommand (data) { //TODO rename
     }
   }
 
-  if(isAtMe) {
-    commandText = commandText.replace(/^\s/, "");
-  }
+  commandText = commandText.replace(/^\s+/, "");
 
   return {
     command: command,
