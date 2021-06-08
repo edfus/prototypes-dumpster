@@ -176,7 +176,7 @@ class InputAgent extends EventEmitter {
   async throw (err, style = "red") {
     this.emit("writing");
 
-    if(Array.isArray(message)) {
+    if(Array.isArray(err)) {
       message = message.join(" ");
     }
 
