@@ -43,26 +43,72 @@ class App extends EventEmitter {
     environment,
     getReaction (name) {
       const value = this.reactions[name];
-      if(value instanceof RandExp) {
+      if(typeof value?.gen === "function") {
         return value.gen();
       }
 
       if(Array.isArray(value)) {
-        return value[parseInt(value.length * Math.random())] || "ඞ";
+        const got = value[Math.floor(value.length * Math.random())];
+        return typeof got?.gen === "function" ? got.gen() : got;
       }
 
       return String(value || "");
     },
     reactions: {
       reject: new RandExp(
-        /[nN](o|ope|ah)?|teehee|。{1,6}|waht|[fF]|OwO|👎|💩|[#$%^~fuck]{6}/
+        /[nN](o|ope|ah)?|teehee|。{1,6}|waht|[fF]|OwO|👎|👀|💩|[#$%^~fuck]{6}/
       ),
       accept: new RandExp(
-        /[0oOk]?k|»{1,9}|oh{1,7}/i
+        /[0oOk]?k|»{1,9}|oh{1,7}|[oO]kay|cool.|not bad|fair/i
       ),
       fooled: new RandExp(
         /FUCK YOU|DON'T STALK ME|I HATE TROLLING/
-      )
+      ),
+      junk: [
+        "useless", "pointless", "futile", "awkward",
+        "junk", "trollishly poor quality", "cringy",
+        new RandExp(/-?[0123]\/10 for spamming me/),
+        new RandExp(
+          /stop being a (creep|shitposter|dipstick|dunce|jackass|imbecile|menace)/
+        ),
+        new RandExp(
+          /stop (shitposting|trashposting|cringing) pls/
+        ),
+        "perfect substitute for toilet paper"
+      ],
+      penisInsult: (() => {
+        const penis = new RandExp(/[ℙ][ℇ℮ℯℰⅇ][ℕ№][iℹ℩ⅈ]s|[ⅅⅆ⅁][ℹ️ℹ℩ⅈ][ℂ℃℄]K/i);
+        penis.defaultRange.add(0, 65535);
+        
+        const emphasizeAdv = new RandExp(/(pathetically |inordinately )?/);
+        const sadVerb = new RandExp(/hurt|feel sad|feel such pain/);
+        const suicide = new RandExp(/committed suicide|died by suicide|died of humiliation/);
+        const small = new RandExp(/small|tiny/);
+        const too = new RandExp(/to{2,5}/);
+        const parts = [
+          { 
+            start: () => "Isn't your",
+            end:   () =>`${emphasizeAdv.gen()}${too.gen()} small?` 
+          },
+          { 
+            start: () =>`You joking me?? How can one with such a ${small.gen()}`,
+            end:   () =>`haven't ${suicide.gen()}` 
+          },
+          { 
+            start: () => `I ${sadVerb.gen()} for your ${small.gen()}`,
+            end:   () =>`size` 
+          }
+        ];
+
+        const insult = () => {
+          const part = parts[Math.floor(Math.random() * parts.length)];
+          return `${part.start()} ${penis.gen()} ${part.end()}`;
+        };
+
+        return {
+          gen: insult
+        };
+      })(),
     }
   };
 
@@ -177,6 +223,13 @@ class App extends EventEmitter {
         return respond(oicq.segment.image(image));
       };
 
+      const reply = async message => {
+        return respond([
+          oicq.segment.reply(qqData.message_id),
+          oicq.segment.text(message)
+        ]);
+      };
+
       try {
         const ctx = {
           ...this.context,
@@ -189,7 +242,8 @@ class App extends EventEmitter {
           plugins: pluginsMeta,
           respond: respondToClient,
           atAndRespond,
-          sendImage: sendImage
+          sendImage: sendImage,
+          reply
         };
   
         const next = async () => {

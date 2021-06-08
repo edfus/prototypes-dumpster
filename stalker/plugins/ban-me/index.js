@@ -3,34 +3,7 @@ import RandExp from "randexp";
 
 // https://en.wikipedia.org/wiki/Letterlike_Symbols
 const emoji = new RandExp(/👎|👀|(💩|💩💩|💩💩💩)|👊/);
-const penis = new RandExp(/[ℙ][ℇ℮ℯℰⅇ][ℕ№][iℹ℩ⅈ]s|[ⅅⅆ⅁][ℹ️ℹ℩ⅈ][ℂ℃℄]K/i);
-penis.defaultRange.add(0, 65535);
-
 const exclamation = new RandExp(/[Ww]ow|LOL|lol|LMAO|lmao|GOSH|gosh|w[ah]{2}t/);
-const emphasizeAdv = new RandExp(/(pathetically |inordinately )?/);
-const sadVerb = new RandExp(/hurt|feel sad|feel such pain/);
-const suicide = new RandExp(/committed suicide|died by suicide|died of humiliation/);
-const small = new RandExp(/small|tiny/);
-const too = new RandExp(/to{2,5}/);
-const parts = [
-  { 
-    start: () => "Isn't your",
-    end:   () =>`${emphasizeAdv.gen()}${too.gen()} small?` 
-  },
-  { 
-    start: () =>`You joking me?? How can one with such a ${small.gen()}`,
-    end:   () =>`haven't ${suicide.gen()}` 
-  },
-  { 
-    start: () => `I ${sadVerb.gen()} for your ${small.gen()}`,
-    end:   () =>`size` 
-  }
-];
-
-const insult = (p, e) => {
-  const part = parts[Math.floor(Math.random() * parts.length)];
-  return `${part.start()} ${p} ${part.end()} ${e}`;
-};
 
 let i = 0;
 const banPattern = /^ban(\s|(?=me)|$)/i;
@@ -97,15 +70,13 @@ export default async function (ctx, next) {
     }
 
     if (durationInSeconds <= 5) {
-      const p = penis.gen();
-      const e = emoji.gen();
       if(durationInSeconds == 1) {
         await ctx.respond(exclamation.gen());
       } else {
         await ctx.respond(`Oh, ${durationInSeconds}cm`);
       }
 
-      return ctx.respond(insult(p, e));
+      return ctx.respond(`${ctx.getReaction("penisInsult")} ${emoji.gen()}`);
     }
 
     switch (ctx.sender.role) {

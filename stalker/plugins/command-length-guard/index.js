@@ -8,6 +8,10 @@ export const priority = 0;
 
 export default async function (ctx, next) {
   if(ctx.commandText.length >= maxLength) {
+    if(ctx.from !== "private" && !ctx.isAtMe) {
+      return ctx.reply(ctx.getReaction("junk"));
+    }
+
     if(spammers.includes(ctx.senderID)) {
       return ctx.respond("DON'T SPAM ME", false);
     }
