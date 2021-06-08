@@ -92,18 +92,22 @@ class InputAgent extends EventEmitter {
     return `${this.prefix}${str}\n`;
   }
 
+  _convertToString (message) {
+    return (
+      typeof message === "string"
+      ? message
+      : inspect(message)
+    );
+  }
+
   async write (message, style) {
     this.emit("writing");
 
     if(Array.isArray(message)) {
-      message = message.join(" ");
+      message = message.map(this._convertToString).join(" ");
     }
 
-    const strMessage = (
-      typeof message === "string"
-        ? message
-        : inspect(message)
-    );
+    const strMessage = this._convertToString(message);
 
     return new Promise((resolve, reject) => {     
       this.stdout.write(
@@ -119,14 +123,10 @@ class InputAgent extends EventEmitter {
     this.emit("writing");
 
     if(Array.isArray(message)) {
-      message = message.join(" ");
+      message = message.map(this._convertToString).join(" ");
     }
 
-    const strMessage = (
-      typeof message === "string"
-        ? message
-        : inspect(message)
-    );
+    const strMessage = this._convertToString(message);
 
     return new Promise((resolve, reject) => {     
       this.stdout.write(
@@ -142,14 +142,10 @@ class InputAgent extends EventEmitter {
     this.emit("writing");
 
     if(Array.isArray(message)) {
-      message = message.join(" ");
+      message = message.map(this._convertToString).join(" ");
     }
 
-    const strMessage = (
-      typeof message === "string"
-        ? message
-        : inspect(message)
-    );
+    const strMessage = this._convertToString(message);
 
     if(emitWarning && this.stdout === process.stdout) {
       if(typeof process.emitWarning === "function") {
@@ -177,7 +173,7 @@ class InputAgent extends EventEmitter {
     this.emit("writing");
 
     if(Array.isArray(err)) {
-      message = message.join(" ");
+      err = err.map(this._convertToString).join(" ");
     }
 
     const error = (

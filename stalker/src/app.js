@@ -262,6 +262,10 @@ class App extends EventEmitter {
         
         this.emit("error", err);
         try {
+          if(ctx.from !== "private" && !ctx.isAtMe) {
+            return ;
+          }
+          
           if(environment === "test") {
             await respondToClient(err);
           } else if (err.expose && !err.message.toString().match(/[\u3400-\u9FBF]/)) {
