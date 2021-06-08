@@ -207,7 +207,7 @@ class App extends EventEmitter {
       nlu.manager = new NluManager(
         { 
           container: this.context.nlp.container,
-          locales: ['en', 'zh'],
+          locales: ['en'],
           trainByDomain: false
         }
       );
@@ -285,9 +285,25 @@ class App extends EventEmitter {
       };
 
       const reply = async message => {
+        if(!Array.isArray(message)) {
+          if(typeof message === "string") {
+            message = [oicq.segment.text(message)];
+          } else {
+            message = [oicq.segment.text(message)];
+          }
+        } else {
+          message = message.map(
+            m => {
+              if(typeof m === "string") {
+                return oicq.segment.text(m);
+              }
+              return m;
+            }
+          );
+        }
         return respond([
           oicq.segment.reply(qqData.message_id),
-          oicq.segment.text(message)
+          ...message
         ]);
       };
 
@@ -310,7 +326,9 @@ class App extends EventEmitter {
           plugins: pluginsMeta,
           respond: respondToClient,
           atAndRespond,
-          sendImage: sendImage,
+          send: respond,
+          sendImage,
+          toImage: image => oicq.segment.image(image),
           reply
         };
   

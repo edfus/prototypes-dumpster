@@ -48,7 +48,7 @@ function addPersonalityDomain(manager, context) {
     }
   }
 
-  for (const reaction of [ context.reactions.junk, context.reactions.penisInsult ]) {
+  for (const reaction of [ context.reactions.junk ]) {
     if(Array.isArray(reaction)) {
       reaction.forEach(process);
     } else {
@@ -85,6 +85,10 @@ export const priority = 7;
 
 export default async function (ctx, next) {
   if(!ctx.nlu.trained) {
+    return next();
+  }
+
+  if(ctx.from !== "private" && !ctx.isAtMe) {
     return next();
   }
 
