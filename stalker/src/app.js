@@ -81,7 +81,7 @@ class App extends EventEmitter {
         "junk", "trollishly poor quality", "cringy",
         new RandExp(/-?[0123]\/10 for spamming me/),
         new RandExp(
-          /stop being a (creep|shitposter|dipstick|dunce|jackass|imbecile|menace)/
+          /stop being a (creep|shitposter|dipstick|dunce|jackass|menace)/
         ),
         new RandExp(
           /stop (shitposting|trashposting|cringing) pls/
@@ -311,7 +311,26 @@ class App extends EventEmitter {
         const parsedContext = parseCommand(qqData);
 
         if(nlu.trained) {
-          nlu.actual = await nlu.manager.process(parsedContext.commandText);
+          if(parsedContext.commandText) {
+            nlu.actual = await nlu.manager.process(parsedContext.commandText);
+          } else {
+            nlu.actual = {
+              locale: 'en',
+              utterance: '',
+              domain: 'None',
+              languageGuessed: true,
+              localeIso2: 'en',
+              language: 'English',
+              nluAnswer: {
+                classifications: [],
+                entities: undefined,
+                explanation: undefined
+              },
+              classifications: [],
+              intent: 'None',
+              score: 0
+            };
+          }
         } 
 
         const ctx = {

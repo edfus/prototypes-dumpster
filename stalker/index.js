@@ -1,6 +1,4 @@
 import App from "./src/app.js";
-import credentials from "./secrets/credentials.js";
-import basicInfo from "./secrets/basic-info.js";
 import { createBot } from "./src/create-bot.js";
 import { loadPlugins } from "./src/load-plugins.js";
 import { InputAgent } from "./src/input-agent.js";
@@ -11,17 +9,42 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pluginsPath = join(__dirname, "./plugins");
 
-const setBasicInfo = false;
+let setBasicInfo = false;
+
+const inputAgent = new InputAgent();
+inputAgent.prefix = "> ";
 
 (async () => {
   const app = new App();
+  let basicInfo, credentials;
+  try {
+    basicInfo = (await import(
+      process.env["STALKER_BASIC_INFO_PATH"] || "./secrets/basic-info.js"
+    )).default;
+    credentials = (await import(
+      process.env["STALKER_CREDENTIALS_PATH"] || "./secrets/credentials.js"
+    )).default;
+  } catch (err) {
+    basicInfo = {};
+    credentials = {};
+    setBasicInfo = false;
+    credentials.uin = (
+      await inputAgent.question("Enter the qq id of the bot: ")
+    );
+    credentials.password_md5 = (
+      await inputAgent.question("Enter the MD5ed password in hex: ")
+    );
+    credentials.master = (
+      await inputAgent.question("The master account to be binded: ")
+    );
+  }
+
   const bot = createBot(credentials);
 
   process.once("SIGINT", () => bot.logout());
   process.once("SIGTERM", () => bot.logout());
-  // process.once("uncaughtException", () => bot.logout());
 
-  bot.once("system.online", () => {
+  bot.on("system.online", () => {
     bot.setOnlineStatus(70); // do not disturb
     if(setBasicInfo) {
       bot.setNickname(basicInfo.nickname);
@@ -30,8 +53,11 @@ const setBasicInfo = false;
     }
   });
 
-  const inputAgent = new InputAgent();
-  inputAgent.prefix = "> ";
+  bot.on("system.offline", () => {
+    setTimeout(() => {
+      bot.login(credentials.password_md5 || credentials.password);
+    }, 10000).unref();
+  });
 
   app.prepend({
     meta: {
