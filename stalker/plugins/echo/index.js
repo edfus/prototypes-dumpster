@@ -7,7 +7,7 @@ export default async function (ctx, next) {
     return next();
   }
 
-  if(ctx.commandText.length < 25 && ctx.commandText.length > 3) {
+  if(ctx.commandText.length < 13 && ctx.commandText.length > 3) {
     const spaceCount = ctx.commandText.split(/\s/).length;
     const japaneseCharCount = ctx.commandText.split(matchJ).length;
     if(japaneseCharCount >= 2 && spaceCount < japaneseCharCount) {

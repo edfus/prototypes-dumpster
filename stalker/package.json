@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node index.js"
+    "start": "node index.js",
+    "test": "mocha"
   },
   "private": true,
   "type": "module",
@@ -18,5 +19,9 @@
     "oicq": "^1.17.2",
     "randexp": "^0.5.3",
     "stream-editor": "^1.10.0"
+  },
+  "devDependencies": {
+    "@edfus/proxy-server": "^0.2.1",
+    "@types/mocha": "^8.2.2"
   }
 }

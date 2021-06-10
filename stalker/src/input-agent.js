@@ -257,17 +257,27 @@ class InputAgent extends EventEmitter {
     this.emit("reading");
     const callback = this.callback();
 
+    const stdin = this.stdin;
+
+    let replacedCounter = 0;
     streamEdit({
-      from: this.stdin,
+      from: stdin,
       to: new Writable({
         write: (chunk, encoding, cb) => cb()
       }),
       separator: /[\r\n]+/,
       search: /[^\r\n]+/,
-      replacement: callback
+      replacement: callback,
+      postProcessing: (part, EOF) => {
+        ++replacedCounter;
+        if(replacedCounter === 1 && !part && EOF && !stdin.isTTY && stdin === process.stdin ) {
+          throw new Error("Empty or no stdin stream attached");
+        }
+        return part;
+      }
     });
 
-    if(this.stdin === process.stdin && !process.listenerCount("SIGINT")) {
+    if(stdin === process.stdin && !process.listenerCount("SIGINT")) {
       this.respond(
         [
           "InputAgent: No listener attached for 'SIGINT' event,",
@@ -276,10 +286,10 @@ class InputAgent extends EventEmitter {
         "bright black"
       );
 
-      process.on("SIGINT", () => this.stdin.unref());
+      process.on("SIGINT", () => stdin.unref());
     }
 
-    return this.stdin;
+    return stdin;
   }
 
   async readline () {
@@ -293,8 +303,14 @@ class InputAgent extends EventEmitter {
       const interruptHandler = () => {
         stdin.unref();
         stdin.unpipe(passThrough);
-        reject("Keyboard Interrupt");
+        reject(new Error("Keyboard Interrupt"));
       };
+
+      const post = func => function () {
+        if(stdin === process.stdin)
+          process.removeListener("SIGINT", interruptHandler);
+        return func.apply(this, arguments);
+      }
 
       if(stdin === process.stdin)
         process.once("SIGINT", interruptHandler);
@@ -306,16 +322,19 @@ class InputAgent extends EventEmitter {
         }),
         separator: /(?=[\r\n])/,
         search: /.*/,
-        replacement: string => {
+        replacement: post(string => {
           stdin.unpipe(passThrough);
-          if(stdin === process.stdin)
-            process.removeListener("SIGINT", interruptHandler);
-          this.emit("userInput", string.trim());
-          return resolve(string.trim());
-        },
+          if(!string && stdin === process.stdin && !stdin.isTTY) {
+            return reject(new Error("Empty or no stdin stream attached"));
+          } else {
+            this.emit("userInput", string.trim());
+            return resolve(string.trim());
+          }
+        }),
         limit: 1,
-        truncate: true
-      }).then(reject, reject);
+        truncate: true,
+        required: true
+      }).then(post(reject), post(reject));
     });
   }
 

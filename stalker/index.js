@@ -14,15 +14,21 @@ let setBasicInfo = false;
 const inputAgent = new InputAgent();
 inputAgent.prefix = "> ";
 
-(async () => {
+const env = {
+  STALKER_BASIC_INFO_PATH: process.env["STALKER_BASIC_INFO_PATH"],
+  STALKER_CREDENTIALS_PATH: process.env["STALKER_CREDENTIALS_PATH"],
+  STALKER_NOTIFY_PORT: process.env["STALKER_NOTIFY_PORT"],
+};
+
+;(async () => {
   const app = new App();
   let basicInfo, credentials;
   try {
     basicInfo = (await import(
-      process.env["STALKER_BASIC_INFO_PATH"] || "./secrets/basic-info.js"
+      env["STALKER_BASIC_INFO_PATH"] || "./secrets/basic-info.js"
     )).default;
     credentials = (await import(
-      process.env["STALKER_CREDENTIALS_PATH"] || "./secrets/credentials.js"
+      env["STALKER_CREDENTIALS_PATH"] || "./secrets/credentials.js"
     )).default;
   } catch (err) {
     basicInfo = {};
@@ -69,7 +75,7 @@ inputAgent.prefix = "> ";
       const timeEnd = Date.now();
 
       if(timeEnd - timeStart > 600) {
-        inputAgent.warn(
+        await inputAgent.warn(
           [
             `Answering ${ctx.from} message to`,
             `[${ctx.sender.nickname} ${ctx.sender.user_id} ${ctx.sender.role}]`,
@@ -80,12 +86,12 @@ inputAgent.prefix = "> ";
     }
   });
 
-  app.on("respond", info => {
+  app.on("respond", async info => {
     if(info.msg.length >= 40) {
       info.msg = info.msg.slice(0, 40).concat("...");
     }
 
-    inputAgent.info(
+    await inputAgent.info(
       [
         new Date().toLocaleString(),
         "Responding",
@@ -95,20 +101,22 @@ inputAgent.prefix = "> ";
       "cyan"
     );
 
-    inputAgent.info(
+    await inputAgent.info(
       info.msg,
       "cyan"
     );
 
-    info.plugin && inputAgent.info(
+    await (
+      info.plugin && inputAgent.info(
       `[ served by '${info.plugin}' ]`,
       "cyan"
+      )
     );
   });
 
-  app.on("error", err => {
+  app.on("error", async err => {
     err.time = new Date().toLocaleString();
-    inputAgent.throw(err);
+    await inputAgent.throw(err);
   });
 
   let callback = app.callback(bot, await loadPlugins(pluginsPath));
@@ -117,30 +125,32 @@ inputAgent.prefix = "> ";
      .login(credentials.password_md5 || credentials.password)
   ;
 
-  inputAgent.use(async (ctx, next) => {
-    const data = ctx.input.trim();
-    if(/(--)?reload|-r/i.test(data)) {
-      ctx.agent.respond("Reloading plugins...");
-      bot.removeListener("message", callback);
+  if(env["STALKER_NOTIFY_PORT"]) {
+    
+  } else {
+    inputAgent.use(async (ctx, next) => {
+      const data = ctx.input.trim();
+      if(/(--)?reload|-r/i.test(data)) {
+        await ctx.agent.respond("Reloading plugins...");
+        bot.removeListener("message", callback);
 
-      callback = app.callback(bot, await loadPlugins(pluginsPath, true));
-      bot.on("message", callback);
-      ctx.agent.respond("Reloaded");
-      return ;
-    }
+        callback = app.callback(bot, await loadPlugins(pluginsPath, true));
+        bot.on("message", callback);
+        await ctx.agent.respond("Reloaded");
+        return ;
+      }
 
-    return next();
-  });
+      return next();
+    });
 
-  inputAgent.use((ctx, next) => {
-    const data = ctx.input.trim();
-    if(/(--)?login|-l/i.test(data)) {
-      ctx.agent.respond("Login...");
-      return bot.login(credentials.password_md5 || credentials.password);
-    }
+    inputAgent.use((ctx, next) => {
+      const data = ctx.input.trim();
+      if(/(--)?login|-l/i.test(data)) {
+        await ctx.agent.respond("Login...");
+        return bot.login(credentials.password_md5 || credentials.password);
+      }
 
-    return next();
-  });
-
-  inputAgent.listen();
-})();
+      return next();
+    });
+  }
+})().then(() => inputAgent.listen());
