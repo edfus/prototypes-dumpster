@@ -179,7 +179,7 @@ class InputAgent extends EventEmitter {
     const error = (
       err instanceof Error
         ? err
-        : new Error(err)
+        : new Error(inspect(err))
     );
 
     let message = error.stack || error.message;

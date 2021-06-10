@@ -9,8 +9,6 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pluginsPath = join(__dirname, "./plugins");
 
-let setBasicInfo = false;
-
 const inputAgent = new InputAgent();
 inputAgent.prefix = "> ";
 
@@ -18,17 +16,20 @@ const env = {
   STALKER_BASIC_INFO_PATH: process.env["STALKER_BASIC_INFO_PATH"],
   STALKER_CREDENTIALS_PATH: process.env["STALKER_CREDENTIALS_PATH"],
   STALKER_NOTIFY_PORT: process.env["STALKER_NOTIFY_PORT"],
+  STALKER_SET_BASIC_INFO: process.env["STALKER_SET_BASIC_INFO"],
 };
+
+const setBasicInfo = env["STALKER_SET_BASIC_INFO"] === "true";
 
 ;(async () => {
   const app = new App();
   let basicInfo, credentials;
   try {
-    basicInfo = (await import(
-      env["STALKER_BASIC_INFO_PATH"] || "./secrets/basic-info.js"
-    )).default;
     credentials = (await import(
       env["STALKER_CREDENTIALS_PATH"] || "./secrets/credentials.js"
+    )).default;
+    basicInfo = (await import(
+      env["STALKER_BASIC_INFO_PATH"] || "./secrets/basic-info.js"
     )).default;
   } catch (err) {
     basicInfo = {};
@@ -50,19 +51,39 @@ const env = {
   process.once("SIGINT", () => bot.logout());
   process.once("SIGTERM", () => bot.logout());
 
-  bot.on("system.online", () => {
-    bot.setOnlineStatus(70); // do not disturb
+  const master = Number(credentials.master);
+  const notifyMaster = async message => {
+    if(master) {
+      return bot.sendPrivateMsg(master, "[meta] ".concat(message));
+    }
+  }
+
+  let retriedCount = 0, lastReport = 0;
+  bot.on("system.online", async () => {
+    await bot.setOnlineStatus(70); // do not disturb
     if(setBasicInfo) {
-      bot.setNickname(basicInfo.nickname);
-      bot.setPortrait(basicInfo.avatar);
-      bot.setSignature(basicInfo.signature);
+      await bot.setNickname(basicInfo.nickname);
+      await bot.setPortrait(basicInfo.avatar);
+      await bot.setSignature(basicInfo.signature);
+    }
+    if(lastReport < retriedCount) {
+      await notifyMaster(
+        "[system] just recovered from a panic attack,"
+      );
+      await notifyMaster(
+        `[system] after system retried ${retriedCount - lastReport} times.`
+      );
+      lastReport = retriedCount;
     }
   });
 
-  bot.on("system.offline", () => {
+  bot.on("system.offline", async () => {
     setTimeout(() => {
-      bot.login(credentials.password_md5 || credentials.password);
+      bot.login(credentials.password_md5);
     }, 10000).unref();
+    await inputAgent.throw(
+      `[${new Date().toString()}] bot.system.offline #${++retriedCount}`
+    );
   });
 
   app.prepend({
@@ -75,13 +96,13 @@ const env = {
       const timeEnd = Date.now();
 
       if(timeEnd - timeStart > 600) {
-        await inputAgent.warn(
-          [
-            `Answering ${ctx.from} message to`,
-            `[${ctx.sender.nickname} ${ctx.sender.user_id} ${ctx.sender.role}]`,
-            `costed ${(timeEnd - timeStart) / 1000}s`
-          ]
-        );
+        const toBeReported = [
+          `Answering ${ctx.from} message to`,
+          `[${ctx.sender.nickname} ${ctx.sender.user_id} ${ctx.sender.role}]`,
+          `costed ${(timeEnd - timeStart) / 1000}s`
+        ];
+        await inputAgent.warn(toBeReported);
+        await notifyMaster(`[warn] ${toBeReported.join(" ")}`);
       }
     }
   });
@@ -117,40 +138,40 @@ const env = {
   app.on("error", async err => {
     err.time = new Date().toLocaleString();
     await inputAgent.throw(err);
+    await notifyMaster(`[error] ${inspect(err)}`);
   });
 
   let callback = app.callback(bot, await loadPlugins(pluginsPath));
 
   bot.on("message", callback)
-     .login(credentials.password_md5 || credentials.password)
+     .login(credentials.password_md5)
   ;
 
   if(env["STALKER_NOTIFY_PORT"]) {
     
   } else {
-    inputAgent.use(async (ctx, next) => {
-      const data = ctx.input.trim();
-      if(/(--)?reload|-r/i.test(data)) {
-        await ctx.agent.respond("Reloading plugins...");
-        bot.removeListener("message", callback);
+  inputAgent.use(async (ctx, next) => {
+    const data = ctx.input.trim();
+    if(/(--)?reload|-r/i.test(data)) {
+      await ctx.agent.respond("Reloading plugins...");
+      bot.removeListener("message", callback);
 
-        callback = app.callback(bot, await loadPlugins(pluginsPath, true));
-        bot.on("message", callback);
-        await ctx.agent.respond("Reloaded");
-        return ;
-      }
+      callback = app.callback(bot, await loadPlugins(pluginsPath, true));
+      bot.on("message", callback);
+      await ctx.agent.respond("Reloaded");
+      return ;
+    }
 
-      return next();
-    });
+    return next();
+  });
 
-    inputAgent.use((ctx, next) => {
-      const data = ctx.input.trim();
-      if(/(--)?login|-l/i.test(data)) {
-        await ctx.agent.respond("Login...");
-        return bot.login(credentials.password_md5 || credentials.password);
-      }
+  inputAgent.use(async (ctx, next) => {
+    const data = ctx.input.trim();
+    if(/(--)?login|-l/i.test(data)) {
+      await ctx.agent.respond("Login...");
+      return bot.login(credentials.password_md5);
+    }
 
-      return next();
-    });
-  }
+    return next();
+  });
 })().then(() => inputAgent.listen());

@@ -19,6 +19,8 @@ export default async function (ctx, next) {
     if(toRun.length > 80) {
       return ctx.respond(ctx.getReaction("reject"));
     }
+
+    return ctx.respond("https://bellard.org/jslinux/vm.html?url=buildroot-x86.cfg");
     
     try {
       const result = await vm.run(toRun);
