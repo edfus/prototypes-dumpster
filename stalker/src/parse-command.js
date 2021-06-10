@@ -3,7 +3,7 @@ let myNickName = "stalker";
 export function parseCommand (data) { //TODO rename
   const selfID = data.self_id;
 
-  const messages = [ ...data.message ];
+  let messages = [ ...data.message ];
   let isAtMe = messages[0].type === "at" && messages[0].data.qq === selfID;
 
   if (isAtMe && messages[0].data.text) {
@@ -12,6 +12,13 @@ export function parseCommand (data) { //TODO rename
 
   if (isAtMe) {
     messages.shift();
+  }
+
+  if (!isAtMe && messages[0].type === "reply") {
+    if(messages[1].type === "at" && messages[1].data.qq === selfID) {
+      isAtMe = true;
+      messages = [ messages[0], ...messages.slice(2)];
+    }
   }
 
   if (!isAtMe && myNickName) {
