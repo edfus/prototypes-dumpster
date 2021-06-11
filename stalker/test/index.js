@@ -36,7 +36,7 @@ describe("auth", async () => {
     reverseProxy = reverseProxyApp.listen(0, "localhost");
   });
 
-  it("auth", async () => {
+  xit("auth", async () => {
     return new Promise((resolve, reject) => {
       server.once("error", reject);
       reverseProxyApp.once("error", reject);

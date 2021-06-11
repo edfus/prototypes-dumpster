@@ -15,22 +15,23 @@ class Authenticator {
     "auth_signature_method", "auth_signature"
   ];
 
-  check (req) {
-    if(!(req instanceof IncomingMessage)) {
-      return false;
+  middleware = (ctx, next) => this._middleware(ctx, next);
+  _middleware (ctx, next) {
+    if(!ctx.secure) {
+      return ctx.redirct(ctx.request.href.replace(/^https?:/, "https"));
     }
-    
-    const authorization = req.headers["authorization"];
+
+    const authorization = ctx.request.get("Authorization");
     if(!authorization || typeof authorization !== "string") {
-      return false;
+      return ctx.throw("authorization required", 401);
     }
 
     if(!authorization.startsWith(this.prefix)) {
-      return false;
+      return ctx.throw("incorrect authorization prefix", 400);
     }
 
     if(authorization.length > 1000) {
-      return false;
+      return ctx.throw("too long", 400);
     }
 
     const authDataArray = (
@@ -39,87 +40,85 @@ class Authenticator {
     );
 
     if(authDataArray.length !== this.keys.length) {
-      return false;
+      return ctx.throw("insufficient auth keys", 400);
     }
 
-    try {
-      const authData = authDataArray.map(
-        entry => {
-          const parts = entry.split("=");
-          if(parts.length !== 2) {
-            throw new Error("More than one occurrence of char =");
-          }
-          const key   = percentDecode(parts[0]);
-          // remove the preceding & trailing ""
-          const value = percentDecode(parts[1].slice(1, parts[1].length - 1));
-
-          return [key, value];
+    const authData = authDataArray.map(
+      entry => {
+        const parts = entry.split("=");
+        if(parts.length !== 2) {
+          return ctx.throw("more than one occurrence of char =", 400);
         }
-      ).reduce(
-        (obj, [key, value]) => {
-          // if(key === "__proto__")
-          if(!this.keys.includes(key)) {
-            throw new Error(`Unrecognizable key ${key}`);
-          }
-          if(key in obj) {
-            throw new Error("Duplicate key");
-          }
-          obj[key] = value;
-          return obj;
-        }, {}
-      );
+        const key   = percentDecode(parts[0]);
+        // remove the preceding & trailing ""
+        const value = percentDecode(parts[1].slice(1, parts[1].length - 1));
 
-      // become stale after 2 and a half minutes
-      if(parseInt(Date.now() / 1000) >= authData.auth_timestamp + 150) {
-        throw new Error("Staling now");
+        return [key, value];
       }
+    ).reduce(
+      (obj, [key, value]) => {
+        // if(key === "__proto__")
+        if(!this.keys.includes(key)) {
+          return ctx.throw("unrecognizable key", 400);
+        }
+        if(key in obj) {
+          return ctx.throw("duplicate key", 400);
+        }
+        obj[key] = value;
+        return obj;
+      }, {}
+    );
 
-      if(authData.auth_signature_method !== "HMAC-SHA1") {
-        throw new Error("Incorrect signature method");
-      }
+    // become stale after 2 and a half minutes
+    if(parseInt(Date.now() / 1000) >= authData.auth_timestamp + 150) {
+      return ctx.throw("staled", 400);
+    }
 
-      const tokenKeysMap = privateMaps.get(this);
+    if(authData.auth_signature_method !== "HMAC-SHA1") {
+      return ctx.throw("incorrect signature method", 400);
+    }
 
-      if(!tokenKeysMap.has(authData.auth_token)) {
-        throw new Error("Non-existing user");
-      }
+    const tokenKeysMap = privateMaps.get(this);
 
-      const protocol = req.headers["x-forwarded-proto"].replace(/([^:]$)/, "$1:");
-      const host = req.headers["x-forwarded-host"];
+    if(!tokenKeysMap.has(authData.auth_token)) {
+      return ctx.throw("unable to authenticate you", 401);
+    }
 
-      const method    = req.method.toUpperCase();
-      const uriObject = new URL(req.url, `${protocol}//${host}`);
+    const method    = ctx.request.method.toUpperCase();
+    const uriObject = new URL(ctx.request.URL);
 
-      const userProvidedSignature = Buffer.from(authData.auth_signature, "base64");
-      const tokenSecret = tokenKeysMap.get(authData.auth_token);
+    const userProvidedSignature = Buffer.from(authData.auth_signature, "base64");
+    const tokenSecret = tokenKeysMap.get(authData.auth_token);
 
-      delete authData.auth_signature;
+    delete authData.auth_signature;
 
-      for (const key in authData) {
-        uriObject.searchParams.append(key, authData[key]);
-      }
+    for (const key in authData) {
+      uriObject.searchParams.append(key, authData[key]);
+    }
 
-      uriObject.searchParams.sort();
+    uriObject.searchParams.sort();
 
-      const toBeSigned = [
-        method.toUpperCase(),
-        uriObject.toString()
-      ].join(";");
+    const toBeSigned = [
+      method.toUpperCase(),
+      uriObject.toString()
+    ].join(";");
 
-      // signature
-      const expectedSignture = (
-        crypto
-          .createHmac(
-            "sha1",
-            Buffer.from(tokenSecret, "base64")
-          )
-          .update(toBeSigned)
-          .digest()
-      );
-    
-      return crypto.timingSafeEqual(expectedSignture, userProvidedSignature);
-    } catch (err) {
-      return false;
+    // signature
+    const expectedSignture = (
+      crypto
+        .createHmac(
+          "sha1",
+          Buffer.from(tokenSecret, "base64")
+        )
+        .update(toBeSigned)
+        .digest()
+    );
+  
+    if(crypto.timingSafeEqual(expectedSignture, userProvidedSignature)) {
+      ctx.state.id = authData.auth_token;
+      return next();
+    } else {
+      return ctx.throw("unable to authenticate you", 401);
     }
   }
 }

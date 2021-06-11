@@ -6,6 +6,12 @@ import { InputAgent } from "./src/input-agent.js";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
+import Koa from "koa";
+import RateLimiter from "async-ratelimiter";
+import Redis from "ioredis";
+import { inspect } from "util";
+import { Authenticator, generateTokens } from "./auth-server.js";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pluginsPath = join(__dirname, "./plugins");
 
@@ -82,7 +88,7 @@ const setBasicInfo = env["STALKER_SET_BASIC_INFO"] === "true";
       bot.login(credentials.password_md5);
     }, 10000).unref();
     await inputAgent.throw(
-      `[${new Date().toString()}] bot.system.offline #${++retriedCount}`
+      `[${new Date().toLocaleString()}] bot.system.offline #${++retriedCount}`
     );
   });
 
@@ -148,8 +154,112 @@ const setBasicInfo = env["STALKER_SET_BASIC_INFO"] === "true";
   ;
 
   if(env["STALKER_NOTIFY_PORT"]) {
+    const webApp = new Koa({ proxy: true, maxIpsCount: 1 });
+    const redis  = new Redis(env["REDIS_PORT"], env["REDIS_HOSTNAME"]);
+    const rateLimiter = new RateLimiter({
+      db: redis,
+      max: 80,
+      duration: 60000, // 1 minute
+      namespace: "limit-api"
+    });
+
+    const origin = env["STALKER_DOMAIN_ORIGIN"];
+
+    webApp.context.format = ctx => {
+      return `<${
+        new Date().toLocaleString()
+      }> ${ctx.ip} ${ctx.method} ${ctx.url} ${ctx.status}`
+    };
+
+    webApp.use(async (ctx, next) => {
+      const ip = ctx.ip;
+      const limit = await rateLimiter.get({ id: ip })
+
+      if (!ctx.response.headerSent) {
+        ctx.response.set('X-Rate-Limit-Limit', limit.total);
+        ctx.response.set('X-Rate-Limit-Remaining', Math.max(0, limit.remaining - 1));
+        ctx.response.set('X-Rate-Limit-Reset', limit.reset);
+      }
+
+      if(!limit.remaining) {
+        return ctx.status = 429; // too many requests
+      } else {
+        try {
+          await next();
+        } catch (err) {
+          const limit = await rateLimiter.get({ id: ip, max: 30 }); // set lower limit
+
+          if (!ctx.response.headerSent) {
+            ctx.response.set('X-Rate-Limit-Limit', limit.total);
+            ctx.response.set('X-Rate-Limit-Remaining', Math.max(0, limit.remaining - 1));
+            ctx.response.set('X-Rate-Limit-Reset', limit.reset);
+          }
+          
+          throw err;
+        }
+      }
+    });
     
-  } else {
+    webApp.use(async (ctx, next) => {
+      if(!ctx.request.origin === origin) {
+        ctx.app.emit(
+          "info", `[note] [incorrect origin request] ${ctx.format(ctx)}`
+        );
+        return ctx.throw("Not Found", 404);
+      }
+      if(!ctx.request.path.startsWith("/notify/keine/")) {
+        return ctx.throw("Not Found", 404);
+      }
+      return next();
+    });
+
+    webApp.use(async (ctx, next) => {
+      if(ctx.request.path === "/notify/keine/tokens.json") {
+        ctx.response.set("Cache-Control", "no-cache");
+        switch (ctx.request.method) {
+          case "HEAD":
+          case "GET":
+            ctx.status = 200;
+            const accept = ctx.request.accepts("json", "text/plain");
+            if(!accept) {
+              return ctx.status = 406;
+            }
+            if(ctx.request.method === "GET") {
+              ctx.app.emit(
+                "info", `[access] [generate token] ${ctx.format(ctx)}`
+              );
+              return ctx.body = JSON.stringify(await generateTokens(), null, 4);
+            } else {
+              return ;
+            }
+          case "OPTIONS":
+            ctx.status = 204;
+            ctx.response.set(
+              "Access-Control-Allow-Origin", origin
+            );
+            ctx.response.set("Vary", "Origin");
+            return ctx.response.set("Allow", "OPTIONS, GET, HEAD");
+          default:
+            ctx.response.set("Cache-Control", "max-age=604800");
+            return ctx.status = 405;
+        }
+      }
+      return next();
+    });
+
+    const tokensMap = new Map();
+    const authenticator = new Authenticator(tokensMap);
+
+    webApp.use(authenticator.middleware);
+
+    webApp.listen(env["STALKER_NOTIFY_PORT"], "localhost", function () {
+      inputAgent.info(
+        `Notification receiver is running at http://localhost:${this.address().port}`,
+        "green"
+      );
+    });
+  }
+  
   inputAgent.use(async (ctx, next) => {
     const data = ctx.input.trim();
     if(/(--)?reload|-r/i.test(data)) {
