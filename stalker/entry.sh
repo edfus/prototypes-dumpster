@@ -1,7 +1,10 @@
 #!/bin/sh
 
-readonly log_stdout=${STALKER_LOG_PATH:-/log/stdout.log}
-readonly log_stderr=${STALKER_LOG_ERR_PATH:-/log/stderr.log}
+readonly log_stdout=${STALKER_LOG_PATH:-./stdout.log}
+readonly log_stderr=${STALKER_LOG_ERR_PATH:-./stderr.log}
+
+mkdir -p $(dirname ${log_stdout})
+mkdir -p $(dirname ${log_stderr})
 
 # redirect stdout and stderr to files
 exec >>${log_stdout}

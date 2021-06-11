@@ -18,7 +18,6 @@
     "@nlpjs/nlu": "^4.22.0",
     "async-ratelimiter": "^1.2.8",
     "ioredis": "^4.27.5",
-    "koa": "^2.13.1",
     "oicq": "^1.17.2",
     "randexp": "^0.5.3",
     "stream-editor": "^1.10.0"

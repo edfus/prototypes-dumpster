@@ -72,7 +72,7 @@ const answsers = {
   "age": () => `I'm turning 30 tomorrow. ${selfIntroduction}`,
   "annoying": () => "Thx, that's what i was born for",
   "insult": () => {
-    const toSend = insult.default();
+    const toSend = insult.default().replace(/\.$/, "");
     if(toSend.length < 15)
       return toSend.toUpperCase();
     else

@@ -7,4 +7,4 @@ RUN /app/setup.sh
 
 USER node
 
-ENTRYPOINT [ "/app/entry.sh", "node", "index.js" ]
+CMD [ "./entry.sh", "node", "index.js" ]
