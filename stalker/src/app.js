@@ -23,6 +23,96 @@ const { containerBootstrap } = require('@nlpjs/core');
 const { NluManager, NluNeural } = require('@nlpjs/nlu');
 const { LangEn } = require('@nlpjs/lang-en-min');
 
+class Context {
+  constructor (baseContext) {
+    for (const key of Object.getOwnPropertyNames(Context.prototype)) {
+      if(typeof Context.prototype[key] === "function") {
+        if(key.startsWith("__")) {
+          this[key.replace(/^_+/, "")] = Context.prototype[key].bind(this, this);
+        } else if(key.startsWith("_")) {
+          this[key.replace(/^_+/, "")] = Context.prototype[key].bind(this);
+        }
+      }
+    }
+
+    return Object.assign(this, baseContext);
+  }
+
+  _toImage (image) {
+    return oicq.segment.image(image);
+  }
+
+  async __send (context, message, auto_escape) {
+    const reportInfo = { 
+      type: context.from, 
+      id:  context.from === "private" ? context.senderID : context.groupID, 
+      msg: message,
+      plugin: context.plugins[context.state.middlewareIndex]?.name
+    };
+
+    context.app.emit("respond", context, reportInfo);
+
+    switch (context.from) {
+      case "private":
+        return context.bot.sendPrivateMsg(context.senderID, message, auto_escape);
+      default: // group
+        return context.bot.sendGroupMsg(context.groupID, message, auto_escape);
+    }
+  }
+
+  async _respond (message) {
+    const strMessage = (
+      typeof message === "string"
+        ? message
+        : inspect(message)
+    );
+
+    return this.send(strMessage, false);
+  };
+
+  async __atAndRespond (context, toAt, body) {
+    if(!Array.isArray(toAt)) {
+      toAt = [ toAt ];
+    }
+  
+    if(context.from === "private") {
+      return this.send(body, false);
+    }
+
+    return this.send([
+      ...toAt.map(atObj => oicq.segment.at(atObj.qq, atObj.text)),
+      oicq.segment.text(body.replace(/^([^\s])/, " $1"))
+    ]);
+  };
+
+  async _sendImage (image) {
+    return this.send(this.toImage(image));
+  };
+
+  async __reply (context, message) {
+    if(!Array.isArray(message)) {
+      if(typeof message === "string") {
+        message = [oicq.segment.text(message)];
+      } else {
+        message = [oicq.segment.text(message)];
+      }
+    } else {
+      message = message.map(
+        m => {
+          if(typeof m === "string") {
+            return oicq.segment.text(m);
+          }
+          return m;
+        }
+      );
+    }
+    return this.send([
+      oicq.segment.reply(context.data.message_id),
+      ...message
+    ]);
+  };
+}
+
 class App extends EventEmitter {
   context = {
     app: this,
@@ -232,127 +322,49 @@ class App extends EventEmitter {
       this.context.nlp.loadPromise.then(manageAndTrain);
     }
 
-    return async (qqData) => {
+    return async qqData => {
       let middlewareIndex = 0;
 
-      const type = qqData.message_type;
-      const respond = async (message, auto_escape) => {
-        const reportInfo = { 
-          type, 
-          id:  type === "private" ? qqData.user_id : qqData.group_id, 
-          msg: message,
-          plugin: pluginsMeta[middlewareIndex - 1]?.name
-        };
+      const parsedContext = parseCommand(qqData);
 
-        this.emit("respond", reportInfo);
-
-        switch (type) {
-          case "private":
-            return bot.sendPrivateMsg(qqData.user_id, message, auto_escape);
-          default: // group
-            return bot.sendGroupMsg(qqData.group_id, message, auto_escape);
-        }
-      }
-
-      const respondToClient = async message => {
-        const strMessage = (
-          typeof message === "string"
-            ? message
-            : inspect(message)
-        );
-  
-        return respond(strMessage);
-      };
-
-      const atAndRespond = async (toAt, body) => {
-        if(!Array.isArray(toAt)) {
-          toAt = [ toAt ];
-        }
-      
-        if(type === "private") {
-          return respond(body);
-        }
-
-        return respond([
-          ...toAt.map(atObj => oicq.segment.at(atObj.qq, atObj.text)),
-          oicq.segment.text(body.replace(/^([^\s])/, " $1"))
-        ]);
-      };
-
-      const sendImage = async image => {
-        return respond(oicq.segment.image(image));
-      };
-
-      const reply = async message => {
-        if(!Array.isArray(message)) {
-          if(typeof message === "string") {
-            message = [oicq.segment.text(message)];
-          } else {
-            message = [oicq.segment.text(message)];
-          }
+      if(nlu.trained) {
+        if(parsedContext.commandText) {
+          nlu.actual = await nlu.manager.process(parsedContext.commandText);
         } else {
-          message = message.map(
-            m => {
-              if(typeof m === "string") {
-                return oicq.segment.text(m);
-              }
-              return m;
-            }
-          );
+          nlu.actual = {
+            locale: 'en',
+            utterance: '',
+            domain: 'None',
+            languageGuessed: true,
+            localeIso2: 'en',
+            language: 'English',
+            nluAnswer: {
+              classifications: [],
+              entities: undefined,
+              explanation: undefined
+            },
+            classifications: [],
+            intent: 'None',
+            score: 0
+          };
         }
-        return respond([
-          oicq.segment.reply(qqData.message_id),
-          ...message
-        ]);
-      };
+      } 
+
+      const ctx = new Context({
+        ...this.context,
+        ...parsedContext,
+        nlu,
+        data: qqData, from: qqData.message_type,
+        state: {},
+        bot,
+        plugins: pluginsMeta
+      });
 
       try {
-        const parsedContext = parseCommand(qqData);
-
-        if(nlu.trained) {
-          if(parsedContext.commandText) {
-            nlu.actual = await nlu.manager.process(parsedContext.commandText);
-          } else {
-            nlu.actual = {
-              locale: 'en',
-              utterance: '',
-              domain: 'None',
-              languageGuessed: true,
-              localeIso2: 'en',
-              language: 'English',
-              nluAnswer: {
-                classifications: [],
-                entities: undefined,
-                explanation: undefined
-              },
-              classifications: [],
-              intent: 'None',
-              score: 0
-            };
-          }
-        } 
-
-        const ctx = {
-          ...this.context,
-          ...parsedContext,
-          nlu,
-          data: qqData, from: type,
-          state: { 
-            
-          },
-          bot,
-          plugins: pluginsMeta,
-          respond: respondToClient,
-          atAndRespond,
-          send: respond,
-          sendImage,
-          toImage: image => oicq.segment.image(image),
-          reply
-        };
-  
         const next = async () => {
           if (middlewareIndex >= middlewares.length)
             return ;
+          ctx.state.middlewareIndex = middlewareIndex;
           return middlewares[middlewareIndex++](ctx, next);
         };
 
@@ -367,11 +379,11 @@ class App extends EventEmitter {
         this.emit("error", err);
         try {
           if(environment === "test") {
-            await respondToClient(err);
+            await ctx.respond(err);
           } else if (err.expose && !err.message.toString().match(/[\u3400-\u9FBF]/)) {
-            await respondToClient(err.message);
+            await ctx.respond(err.message);
           } else {
-            await respondToClient(err.status || "Having an existential crisis right now, go eat your boots!");
+            await ctx.respond(err.status || "Having an existential crisis right now, go eat your boots!");
           }
         } catch (error) {
           this.emit("error", { panic: "Report to client failed", error });
