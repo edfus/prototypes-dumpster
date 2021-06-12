@@ -13,11 +13,13 @@ import { inspect } from "util";
 import { createServer } from "http";
 import { pipeline, Writable } from "stream";
 
+import log4js from "log4js";
+import { createHash } from "crypto";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pluginsPath = join(__dirname, "./plugins");
 
 const inputAgent = new InputAgent();
-inputAgent.prefix = "> ";
 
 const env = {
   STALKER_BASIC_INFO_PATH: process.env["STALKER_BASIC_INFO_PATH"],
@@ -58,16 +60,80 @@ let setBasicInfo = (
     );
   }
 
+  log4js.addLayout('json', config => {
+    return logEvent => {
+      if(logEvent && typeof logEvent === "object") {
+        if(logEvent.startTime) {
+          logEvent.timestamp = new Date().toLocaleString(
+            "en-US", { timeZone: "Asia/Shanghai" }
+          );
+          delete logEvent.startTime;
+        }
+        if(logEvent.categoryName) {
+          logEvent.name = logEvent.categoryName;
+          delete logEvent.categoryName;
+        }
+        if(logEvent.level && typeof logEvent.level === "object") {
+          logEvent.level = logEvent.levelStr?.toLowerCase?.();
+        }
+        if(logEvent.context && typeof logEvent.context === "object") {
+          let isEmpty = true;
+          for (const key in logEvent.context) {
+            isEmpty = true;
+            break;
+          }
+          if(isEmpty) {
+            delete logEvent.context;
+          }
+        }
+      }
+
+      const json = JSON.stringify(logEvent).replace(/\d{6,}/g, inputAgent.mask);
+
+      return json.concat(config.separator);
+    };
+  });
+  
+  log4js.configure({
+    appenders: {
+      out: { type: 'stdout', layout: { type: 'json', separator: '' } }
+    },
+    categories: {
+      default: { appenders: ['out'], level: 'info' }
+    }
+  });
+
   const bot = createBot(credentials);
+
+  const botId = createHash("sha1").update(
+    String(credentials.uin)
+  ).digest("base64").slice(0, 6);
+
+  bot.logger = log4js.getLogger(`OICQ-S-A-${botId}`);
+
+  inputAgent.logger = log4js.getLogger(`app-stalker-${botId}`);
 
   process.once("SIGINT", () => bot.logout());
   process.once("SIGTERM", () => bot.logout());
 
   const master = Number(credentials.master);
+  const masterId = createHash("sha1").update(
+    String(master)
+  ).digest("base64").slice(0, 6);
   const notifyMaster = async message => {
     if(master) {
-      return bot.sendPrivateMsg(master, "[meta] ".concat(message));
+      try {
+        await bot.sendPrivateMsg(master, "[meta] ".concat(message));
+      } catch (err) {
+        return inputAgent.logger.error(
+          `sending message to master ${masterId} failed with`, err
+        );
+      }
+      
+      return inputAgent.logger.info(`sent message to master ${masterId}`);
     }
+
+    return inputAgent.logger.warn(`master not binded, sending`, message, "failed");
   };
 
   const setStatus = async () => {
@@ -77,10 +143,13 @@ let setBasicInfo = (
       basicInfo.avatar && await bot.setPortrait(basicInfo.avatar);
       basicInfo.signature && await bot.setSignature(basicInfo.signature);
     }
-  }
+
+    return inputAgent.logger.info(`status set successfully.`);
+  };
 
   let retriedCount = 0, lastReport = 0;
   bot.on("system.online", async () => {
+    inputAgent.logger.info(`back online.`);
     await setStatus();
 
     if(lastReport < retriedCount) {
@@ -97,10 +166,10 @@ let setBasicInfo = (
     setTimeout(() => {
       bot.login(credentials.password_md5);
     }, 10000).unref();
-    await inputAgent.throw(
-      `[${new Date().toLocaleString()}] bot.system.offline #${++retriedCount}`
-    );
+    return inputAgent.logger.warn(`bot.system.offline #${++retriedCount}`);
   });
+
+  const mask = inputAgent.mask;
 
   app.prepend({
     meta: {
@@ -114,10 +183,10 @@ let setBasicInfo = (
       if(timeEnd - timeStart > 600) {
         const toBeReported = [
           `Answering ${ctx.from} message to`,
-          `[${ctx.sender.nickname} ${ctx.sender.user_id} ${ctx.sender.role}]`,
+          `[${ctx.sender.nickname} ${mask(ctx.sender.user_id)} ${ctx.sender.role}]`,
           `costed ${(timeEnd - timeStart) / 1000}s`
         ];
-        await inputAgent.warn(toBeReported);
+        inputAgent.logger.warn(toBeReported);
         await notifyMaster(`[warn] ${toBeReported.join(" ")}`);
       }
     }
@@ -181,6 +250,7 @@ let setBasicInfo = (
             await notifyMaster(
               `[warn] global ${globalLimit.totoal} rate-limit reached.`
             );
+            inputAgent.logger.warn(`global ${globalLimit.totoal} rate-limit reached.`);
             globalLimit.reported = true;
             await ctx.bot.setOnlineStatus(31); // away
           }
@@ -199,11 +269,11 @@ let setBasicInfo = (
 
         if(!limit.remaining) {
           rateLimited.set(id, Date.now());
-          await notifyMaster(
-            `[warn] rate-limit reached for ${ctx.from}-${id}-${
-              ctx.groupName || ctx.sender.nickname
-            }`
-          );
+          const toWarn = `rate-limit reached for ${ctx.from}-${id}-${
+            ctx.groupName || ctx.sender.nickname
+          }`;
+          inputAgent.logger.warn(toWarn);
+          await notifyMaster(`[warn] ${toWarn}`);
           return ctx.respond("Ratelimited, staying low for a while, cya");
         }
 
@@ -230,6 +300,18 @@ let setBasicInfo = (
                 const part = textDecoder.decode(chunk, { stream: true });
                 length += part.length;
                 if(length > 500) {
+                  inputAgent.logger.warn(
+                    "notifier posted a message",
+                    message.slice(0, 50).concat("..."),
+                    "with a length more than 500",
+                    {
+                      headers: req.rawHeaders,
+                      ip: req.headers["x-forwarded-for"],
+                      host: req.headers["x-forwarded-host"],
+                      proto: req.headers["x-forwarded-proto"],
+                      uuid: req.headers["x-request-id"]
+                    }
+                  );
                   return cb(new Error("Length too long"));
                 }
                 toSend.push(part);
@@ -245,28 +327,38 @@ let setBasicInfo = (
           )
         });
 
+        const message = toSend.join("");
         if(master) {
-          const message = toSend.join("");
           await bot.sendPrivateMsg(master, "[notify] ".concat(message));;
-          await inputAgent.info(
-            [
-              `[${new Date().toLocaleString()}] Notified master about '${
-                message.length > 50 ? message.slice(0, 50).concat("...") : message
-              }'.`
-            ],
-            "yellow"
+          inputAgent.logger.info(
+            `Notified master about '${
+              message.length > 50 ? message.slice(0, 50).concat("...") : message
+            }'.`, {
+              ip: req.headers["x-forwarded-for"],
+              host: req.headers["x-forwarded-host"],
+              uuid: req.headers["x-request-id"]
+            }
           );
         } else {
+          inputAgent.logger.warn(
+            `master not binded, sending`,
+            message.length > 50 ? message.slice(0, 50).concat("...") : message,
+            "failed", {
+              ip: req.headers["x-forwarded-for"],
+              host: req.headers["x-forwarded-host"],
+              uuid: req.headers["x-request-id"]
+            }
+          );
           throw new Error("An orphan, I am");
         }
       } catch (err) {
         return res.writeHead(400).end(err.message);
       }
+
       return res.writeHead(200).end("ok");
     }).listen(Number(env["STALKER_NOTIFY_PORT"]), () => {
-      inputAgent.info(
-        `Server is running at http://0.0.0.0:${env["STALKER_NOTIFY_PORT"]}`,
-        "green"
+      inputAgent.logger.info(
+        `Server is running at http://0.0.0.0:${env["STALKER_NOTIFY_PORT"]}`
       );
     });
   }
@@ -276,32 +368,20 @@ let setBasicInfo = (
       info.msg = info.msg.slice(0, 40).concat("...");
     }
 
-    await inputAgent.info(
+    inputAgent.logger.info(
       [
-        new Date().toLocaleString(),
         "Responding",
         info.type === "private" ? "to" : "in group",
-        info.id
-      ],
-      "cyan"
-    );
-
-    await inputAgent.info(
-      info.msg,
-      "cyan"
-    );
-
-    await (
-      info.plugin && inputAgent.info(
-      `[ served by '${info.plugin}' ]`,
-      "cyan"
-      )
+        mask(info.id).concat(":"),
+        info.msg,
+        "<==>",
+        `[served by '${info.plugin}']`
+      ].join(" ")
     );
   });
 
   app.on("error", async err => {
-    err.time = new Date().toLocaleString();
-    await inputAgent.throw(err);
+    inputAgent.logger.error(err);
     await notifyMaster(`[error] ${inspect(err)}`);
   });
 
@@ -318,7 +398,7 @@ let setBasicInfo = (
           if(command.startsWith(commandIdentified)) {
             const cmd = command.slice(commandIdentified.length);
             if(/^[Rr]eload$/.test(cmd)) {
-              await inputAgent.prompt("Reloading plugins as required by master...");
+              inputAgent.logger.info("Reloading plugins as required by master...");
               bot.removeListener("message", callback);
         
               callback = app.callback(bot, await loadPlugins(pluginsPath, true));

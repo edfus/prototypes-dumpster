@@ -21,7 +21,7 @@ export default async function (ctx, next) {
   if(command[0].type === "text" && banPattern.test(command[0].value)) {
     const textTarget = command[0].value.replace(banPattern, "").trim();
 
-    const groupID = ctx.groupID;
+    const groupID  = ctx.groupID;
     const senderID = ctx.senderID;
 
     if(!targetPattern.test(textTarget)) {

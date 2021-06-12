@@ -350,6 +350,53 @@ class InputAgent extends EventEmitter {
     await this.prompt(message, style);
     return this.readline();
   }
+
+  logger = {
+    _format (obj) {
+      if(typeof obj !== "object" || !obj) {
+        obj =  {
+          message: obj
+        };
+      }
+  
+      obj.timestamp = new Date().toLocaleString("en-US", { timeZone: "Asia/Shanghai" });
+      return obj;
+    },
+    fatal: null,
+    error (obj) {
+      obj = this._format(obj);
+      obj.level = "error";
+      console.error(JSON.stringify(obj));
+    },
+    warn: obj => {
+      obj = this._format(obj);
+      obj.level = "warn";
+      console.warn(JSON.stringify(obj));
+    },
+    info: obj => {
+      obj = this._format(obj);
+      obj.level = "info";
+      console.info(JSON.stringify(obj));
+    },
+    access: obj => {
+      obj = this._format(obj);
+      obj.level = "access";
+      console.info(JSON.stringify(obj));
+    },
+    debug: null,
+    trace: null,
+  };
+
+  mask (str) {
+    if(typeof str !== "string") {
+      if(typeof str === "number" && str)
+        str = String(str);
+      else return "";
+    }
+    const len = Math.ceil(str.length / 2.5);
+    const pos = Math.floor(str.length / 2 - len / 2);
+    return str.slice(0, pos) + "*".repeat(len) + str.slice(pos + len);
+  }
 }
 
 export { InputAgent };
