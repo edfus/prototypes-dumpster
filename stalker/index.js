@@ -30,6 +30,49 @@ const env = {
   REDIS_HOSTNAME: process.env["REDIS_HOSTNAME"]
 };
 
+log4js.addLayout('json', config => {
+  return logEvent => {
+    if(logEvent && typeof logEvent === "object") {
+      if(logEvent.startTime) {
+        logEvent.timestamp = new Date().toLocaleString(
+          "en-US", { timeZone: "Asia/Shanghai" }
+        );
+        delete logEvent.startTime;
+      }
+      if(logEvent.categoryName) {
+        logEvent.name = logEvent.categoryName;
+        delete logEvent.categoryName;
+      }
+      if(logEvent.level && typeof logEvent.level === "object") {
+        logEvent.level = logEvent.levelStr?.toLowerCase?.();
+      }
+      if(logEvent.context && typeof logEvent.context === "object") {
+        let isEmpty = true;
+        for (const key in logEvent.context) {
+          isEmpty = true;
+          break;
+        }
+        if(isEmpty) {
+          delete logEvent.context;
+        }
+      }
+    }
+
+    const json = JSON.stringify(logEvent).replace(/\d{6,}/g, inputAgent.mask);
+
+    return json.concat(config.separator);
+  };
+});
+
+log4js.configure({
+  appenders: {
+    out: { type: 'stdout', layout: { type: 'json', separator: '' } }
+  },
+  categories: {
+    default: { appenders: ['out'], level: 'info' }
+  }
+});
+
 let setBasicInfo = (
   env["STALKER_SET_BASIC_INFO"] === undefined
   ? true : ["true", "0"].includes(env["STALKER_SET_BASIC_INFO"])
@@ -37,18 +80,17 @@ let setBasicInfo = (
 
 ;(async () => {
   const app = new App();
+
   let basicInfo, credentials;
   try {
     credentials = (await import(
       env["STALKER_CREDENTIALS_PATH"] || "./secrets/credentials.js"
     )).default;
-    basicInfo = (await import(
-      env["STALKER_BASIC_INFO_PATH"] || "./secrets/basic-info.js"
-    )).default;
   } catch (err) {
-    basicInfo = {};
+    log4js.getLogger(`app-stalker-loader`).warn(`Loading credentials ${
+      env["STALKER_CREDENTIALS_PATH"] || "./secrets/credentials.js"
+    } failed with error ${err.message}`);
     credentials = {};
-    setBasicInfo = false;
     credentials.uin = (
       await inputAgent.question("Enter the qq id of the bot: ")
     );
@@ -60,48 +102,17 @@ let setBasicInfo = (
     );
   }
 
-  log4js.addLayout('json', config => {
-    return logEvent => {
-      if(logEvent && typeof logEvent === "object") {
-        if(logEvent.startTime) {
-          logEvent.timestamp = new Date().toLocaleString(
-            "en-US", { timeZone: "Asia/Shanghai" }
-          );
-          delete logEvent.startTime;
-        }
-        if(logEvent.categoryName) {
-          logEvent.name = logEvent.categoryName;
-          delete logEvent.categoryName;
-        }
-        if(logEvent.level && typeof logEvent.level === "object") {
-          logEvent.level = logEvent.levelStr?.toLowerCase?.();
-        }
-        if(logEvent.context && typeof logEvent.context === "object") {
-          let isEmpty = true;
-          for (const key in logEvent.context) {
-            isEmpty = true;
-            break;
-          }
-          if(isEmpty) {
-            delete logEvent.context;
-          }
-        }
-      }
-
-      const json = JSON.stringify(logEvent).replace(/\d{6,}/g, inputAgent.mask);
-
-      return json.concat(config.separator);
-    };
-  });
-  
-  log4js.configure({
-    appenders: {
-      out: { type: 'stdout', layout: { type: 'json', separator: '' } }
-    },
-    categories: {
-      default: { appenders: ['out'], level: 'info' }
-    }
-  });
+  try {
+    basicInfo = (await import(
+      env["STALKER_BASIC_INFO_PATH"] || "./secrets/basic-info.js"
+    )).default;
+  } catch (err) {
+    log4js.getLogger(`app-stalker-loader`).warn(`Loading basicInfo ${
+      env["STALKER_BASIC_INFO_PATH"] || "./secrets/basic-info.js"
+    } failed with error ${err.message}`);
+    basicInfo = {};
+    setBasicInfo = false;
+  }
 
   const bot = createBot(credentials);
 
@@ -110,7 +121,6 @@ let setBasicInfo = (
   ).digest("base64").slice(0, 6);
 
   bot.logger = log4js.getLogger(`OICQ-S-A-${botId}`);
-
   inputAgent.logger = log4js.getLogger(`app-stalker-${botId}`);
 
   process.once("SIGINT", () => bot.logout());
@@ -443,4 +453,4 @@ let setBasicInfo = (
 
     return next();
   });
-})().then(() => inputAgent.listen());
+})().then(() => process.stdin.isTTY && inputAgent.listen());
