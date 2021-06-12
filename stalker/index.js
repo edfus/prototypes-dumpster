@@ -27,7 +27,8 @@ const env = {
   STALKER_NOTIFY_PORT: process.env["STALKER_NOTIFY_PORT"],
   STALKER_SET_BASIC_INFO: process.env["STALKER_SET_BASIC_INFO"],
   REDIS_PORT: process.env["REDIS_PORT"],
-  REDIS_HOSTNAME: process.env["REDIS_HOSTNAME"]
+  REDIS_HOSTNAME: process.env["REDIS_HOSTNAME"],
+  REDIS_PASSWORD: process.env["REDIS_PASSWORD"]
 };
 
 log4js.addLayout('json', config => {
@@ -203,7 +204,13 @@ let setBasicInfo = (
   });
 
   if(env["REDIS_PORT"]) {  
-    const redis  = new Redis(Number(env["REDIS_PORT"]), env["REDIS_HOSTNAME"] || "localhost");
+    const redis  = new Redis(
+      Number(env["REDIS_PORT"]),
+      env["REDIS_HOSTNAME"] || "localhost",
+      {
+        password: env["REDIS_PASSWORD"]
+      }
+    );
     
     const limitDuration = 60000; // 1 minute
     const rateLimiter = new RateLimiter({
@@ -277,7 +284,7 @@ let setBasicInfo = (
             : await rateLimiter.get({ id: id, decrease: false })
         );
 
-        if(!limit.remaining) {
+        if(!limit.remaining && !rateLimited.has(id)) { // lock
           rateLimited.set(id, Date.now());
           const toWarn = `rate-limit reached for ${ctx.from}-${id}-${
             ctx.groupName || ctx.sender.nickname
