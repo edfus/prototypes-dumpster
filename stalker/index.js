@@ -11,6 +11,7 @@ import Redis from "ioredis";
 
 import { inspect } from "util";
 import { createServer } from "http";
+import { promises as fsp } from "fs";
 import { pipeline, Writable } from "stream";
 
 import log4js from "log4js";
@@ -28,7 +29,8 @@ const env = {
   STALKER_SET_BASIC_INFO: process.env["STALKER_SET_BASIC_INFO"],
   REDIS_PORT: process.env["REDIS_PORT"],
   REDIS_HOSTNAME: process.env["REDIS_HOSTNAME"],
-  REDIS_PASSWORD: process.env["REDIS_PASSWORD"]
+  REDIS_USERNAME: process.env["REDIS_USERNAME"],
+  REDIS_PASSWORD_PATH: process.env["REDIS_PASSWORD_PATH"]
 };
 
 log4js.addLayout('json', config => {
@@ -208,7 +210,8 @@ let setBasicInfo = (
       Number(env["REDIS_PORT"]),
       env["REDIS_HOSTNAME"] || "localhost",
       {
-        password: env["REDIS_PASSWORD"]
+        username: env["REDIS_USERNAME"],
+        password: await fsp.readFile(env["REDIS_PASSWORD_PATH"], "utf-8")
       }
     );
     
@@ -301,6 +304,10 @@ let setBasicInfo = (
 
   if(env["STALKER_NOTIFY_PORT"]) {
     createServer(async (req, res) => {
+      if(["HEAD", "GET"].includes(req.method)) {
+        return res.writeHead(204).end();
+      }
+
       if(req.method !== "PUT") {
         return res.writeHead(405).end();
       }
