@@ -32,8 +32,8 @@ export default async function (ctx, next) {
       groupID: ctx.groupID,
     }
 
-    if(ctx.from !== "private" && !ctx.isAtMe) {
-      return ctx.reply(ctx.getReaction("junk"));
+    if(ctx.from !== "private") {
+      return next();
     }
 
     if(spammers.includes(ctx.senderID)) {
@@ -45,7 +45,7 @@ export default async function (ctx, next) {
       spammers.shift();
     }
 
-    return ctx.respond(r(), false);
+    return ctx.respond(ctx.getReaction("junk"), false);
   }
 
   return next();
